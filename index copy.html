@@ -376,9 +376,8 @@
       <span>IronTrack</span>
       <span class="brand-badge">PRO SPLIT</span>
     </div>
-    <!-- User status, Sync button & Log out -->
+    <!-- User status & Log out button -->
     <div class="user-auth-bar" id="userBar">
-      <button class="btn-xs" id="manualSyncBtn" onclick="pullFromCloud(true)" style="color: var(--cyan); border-color: rgba(0,243,255,0.3);">☁️ Sync</button>
       <span class="user-auth-email" id="userEmailTag"></span>
       <button class="btn-xs" style="color: #fca5a5; border-color: rgba(239,68,68,0.3);" onclick="handleSignOut()">Log Out</button>
     </div>
@@ -555,6 +554,7 @@
 <script>
 // ==========================================
 // 1. SUPABASE CLIENT & AUTH CONFIGURATION
+// Paste your exact credentials from Supabase Dashboard -> Project Settings -> API
 // ==========================================
 const SUPABASE_URL = 'https://jlwaebsftvtqghmhhess.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impsd2FlYnNmdHZ0cWdobWhoZXNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0Mjk1OTgsImV4cCI6MjEwNDAwNTU5OH0.6bb0zIkWxUpX31KIckqNVWVBb0p2QRhl10yeUlA5e_g';
@@ -565,7 +565,6 @@ const supabaseClient = (window.supabase && SUPABASE_URL !== 'YOUR_SUPABASE_URL')
 
 let isSignUpMode = false;
 let currentUser = null;
-let syncChannel = null;
 
 function toggleAuthMode() {
   isSignUpMode = !isSignUpMode;
@@ -573,6 +572,7 @@ function toggleAuthMode() {
   document.getElementById('authSubmitBtn').textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
   document.getElementById('authToggleText').textContent = isSignUpMode ? 'Already have an account?' : 'Need an account?';
 }
+
 
 async function handleAuthSubmit(e) {
   e.preventDefault();
@@ -582,7 +582,7 @@ async function handleAuthSubmit(e) {
   const btn = document.getElementById('authSubmitBtn');
 
   if (!supabaseClient) {
-    msg.textContent = 'Supabase client is not ready. Verify your keys.';
+    msg.textContent = 'Please replace YOUR_SUPABASE_URL and YOUR_SUPABASE_ANON_KEY in index.html first.';
     msg.style.color = '#ef4444';
     msg.style.display = 'block';
     return;
@@ -610,59 +610,77 @@ async function handleAuthSubmit(e) {
     currentUser = res.data.session.user;
     updateUserSessionUI(currentUser);
     await pullFromCloud();
-    subscribeToRealtimeSync();
   } else if (res.data.user && !res.data.session) {
-    msg.textContent = 'Account created! Please disable "Confirm email" in Supabase to sign in instantly, or check your inbox.';
+    // If Supabase still has Email Confirmation enabled
+    msg.textContent = 'Account created! Please check your email to confirm your account before signing in, or disable "Confirm email" in Supabase.';
     msg.style.color = 'var(--cyan)';
     msg.style.display = 'block';
   }
 }
 
-async function handleSignOut() {
-  if (syncChannel && supabaseClient) {
-    supabaseClient.removeChannel(syncChannel);
-    syncChannel = null;
-  }
-  if (supabaseClient) await supabaseClient.auth.signOut();
-  currentUser = null;
-  window.location.reload();
-}
+// async function handleAuthSubmit(e) {
+//   e.preventDefault();
+//   const email = document.getElementById('authEmail').value.trim();
+//   const password = document.getElementById('authPassword').value;
+//   const msg = document.getElementById('authMsg');
+//   const btn = document.getElementById('authSubmitBtn');
 
-function updateUserSessionUI(user) {
-  const overlay = document.getElementById('authOverlay');
-  const userBar = document.getElementById('userBar');
-  const emailTag = document.getElementById('userEmailTag');
-  if (user) {
-    overlay.classList.remove('active');
-    userBar.style.display = 'flex';
-    emailTag.textContent = user.email;
-  } else {
-    overlay.classList.add('active');
-    userBar.style.display = 'none';
-  }
-}
+//   if (!supabaseClient) {
+//     msg.textContent = 'Please replace YOUR_SUPABASE_URL and YOUR_SUPABASE_ANON_KEY in index.html first.';
+//     msg.style.color = '#ef4444';
+//     msg.style.display = 'block';
+//     return;
+//   }
 
-// Re-render all views and trackers after cloud pull
-function refreshAllUI() {
-  FLAT_EXERCISES.forEach(ex => {
-    const sel = document.getElementById(ex.category + 'Select');
-    if (sel) applyVariation(ex.category, ex.prefix, sel.value, true);
-  });
-  renderHistory();
-  renderSnapshotsList();
-  updateProgress();
-  updateSessionStats();
-  if (typeof render1RMTrends === 'function') render1RMTrends();
-  if (typeof renderMuscleGroupBarChart === 'function') renderMuscleGroupBarChart();
-}
+//   btn.disabled = true;
+//   btn.textContent = 'Processing...';
+//   msg.style.display = 'none';
+
+//   let res;
+//   if (isSignUpMode) {
+//     res = await supabaseClient.auth.signUp({ email, password });
+//   } else {
+//     res = await supabaseClient.auth.signInWithPassword({ email, password });
+//   }
+
+//   btn.disabled = false;
+//   btn.textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
+
+//   if (res.error) {
+//     msg.textContent = res.error.message;
+//     msg.style.color = '#ef4444';
+//     msg.style.display = 'block';
+//   } else if (res.data.user) {
+//     currentUser = res.data.user;
+//     updateUserSessionUI(currentUser);
+//     await pullFromCloud();
+//   }
+// }
+
+// async function handleSignOut() {
+//   if (supabaseClient) await supabaseClient.auth.signOut();
+//   currentUser = null;
+//   window.location.reload();
+// }
+
+// function updateUserSessionUI(user) {
+//   const overlay = document.getElementById('authOverlay');
+//   const userBar = document.getElementById('userBar');
+//   const emailTag = document.getElementById('userEmailTag');
+//   if (user) {
+//     overlay.classList.remove('active');
+//     userBar.style.display = 'flex';
+//     emailTag.textContent = user.email;
+//   } else {
+//     overlay.classList.add('active');
+//     userBar.style.display = 'none';
+//   }
+// }
 
 // Pull workouts from cloud into localStorage
-async function pullFromCloud(showIndicator = false) {
+async function pullFromCloud() {
   if (!currentUser || !supabaseClient) return;
   try {
-    const syncBtn = document.getElementById('manualSyncBtn');
-    if (syncBtn && showIndicator) syncBtn.textContent = '⏳ Syncing...';
-
     const { data, error } = await supabaseClient
       .from('user_sync')
       .select('history')
@@ -671,26 +689,50 @@ async function pullFromCloud(showIndicator = false) {
 
     if (error) {
       console.error('Cloud pull error:', error.message);
-      if (syncBtn && showIndicator) syncBtn.textContent = '❌ Error';
       return;
     }
 
-    if (data && data.history && Array.isArray(data.history)) {
+    if (data && data.history && Array.isArray(data.history) && data.history.length > 0) {
       setJ('iron_workout_history', data.history);
-      refreshAllUI();
+      
+      // Refresh Ghost Sets, Variation Presets, and History UI
+      FLAT_EXERCISES.forEach(ex => {
+        const sel = document.getElementById(ex.category + 'Select');
+        if (sel) applyVariation(ex.category, ex.prefix, sel.value, true);
+      });
+      renderHistory();
+      renderSnapshotsList();
+      updateProgress();
     } else {
+      // If cloud is empty, upload existing local data
       const local = getJ('iron_workout_history', []);
       if (local.length > 0) await pushToCloud();
-    }
-
-    if (syncBtn && showIndicator) {
-      syncBtn.textContent = '✅ Synced';
-      setTimeout(() => { syncBtn.textContent = '☁️ Sync'; }, 2000);
     }
   } catch (err) {
     console.error('Unexpected sync error:', err);
   }
 }
+// async function pullFromCloud() {
+//   if (!currentUser || !supabaseClient) return;
+//   try {
+//     const { data } = await supabaseClient
+//       .from('user_sync')
+//       .select('history')
+//       .eq('user_id', currentUser.id)
+//       .maybeSingle();
+
+//     if (data && data.history && Array.isArray(data.history) && data.history.length > 0) {
+//       setJ('iron_workout_history', data.history);
+//       renderHistory();
+//     } else {
+//       // If cloud is empty but local has records, sync local up to cloud
+//       const local = getJ('iron_workout_history', []);
+//       if (local.length > 0) await pushToCloud();
+//     }
+//   } catch (err) {
+//     console.error('Cloud pull error:', err);
+//   }
+// }
 
 // Push local workouts to cloud
 async function pushToCloud() {
@@ -705,31 +747,6 @@ async function pushToCloud() {
   } catch (err) {
     console.error('Cloud push error:', err);
   }
-}
-
-// Listen for live updates made on other devices
-function subscribeToRealtimeSync() {
-  if (!currentUser || !supabaseClient) return;
-  if (syncChannel) supabaseClient.removeChannel(syncChannel);
-
-  syncChannel = supabaseClient
-    .channel('user_sync_' + currentUser.id)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'user_sync',
-        filter: `user_id=eq.${currentUser.id}`
-      },
-      (payload) => {
-        if (payload.new && Array.isArray(payload.new.history)) {
-          setJ('iron_workout_history', payload.new.history);
-          refreshAllUI();
-        }
-      }
-    )
-    .subscribe();
 }
 
 // ----- Workout Database -----
@@ -2297,7 +2314,6 @@ function init() {
         currentUser = session.user;
         updateUserSessionUI(currentUser);
         pullFromCloud();
-        subscribeToRealtimeSync();
       } else {
         updateUserSessionUI(null);
       }
@@ -2307,27 +2323,16 @@ function init() {
       if (session && session.user) {
         currentUser = session.user;
         updateUserSessionUI(currentUser);
-        subscribeToRealtimeSync();
       } else {
         currentUser = null;
         updateUserSessionUI(null);
-        if (syncChannel && supabaseClient) {
-          supabaseClient.removeChannel(syncChannel);
-          syncChannel = null;
-        }
       }
-    });
-
-    // Automatically pull latest cloud data whenever you switch back to this tab/window or unlock your phone
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && currentUser) {
-        pullFromCloud();
-      }
-    });
-    window.addEventListener('focus', () => {
-      if (currentUser) pullFromCloud();
     });
   }
+  // Automatically pull latest cloud data whenever you switch back to this tab/window
+  window.addEventListener('focus', () => {
+    if (currentUser) pullFromCloud();
+  });
 }
 
 window.ironStart = Date.now();
