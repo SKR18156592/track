@@ -10,8 +10,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-  <!-- Supabase CDN Client -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --bg: #0a0a0f;
@@ -55,13 +53,10 @@
     }
     .app-shell { width: 100%; max-width: 960px; display: flex; flex-direction: column; gap: 18px; }
 
-    .app-topbar { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }
+    .app-topbar { display: flex; justify-content: center; align-items: center; padding: 8px 0; }
     .brand-logo { font-weight: 800; font-size: 20px; letter-spacing: -0.5px; display: flex; align-items: center; gap: 10px; }
     .logo-bolt { color: var(--cyan); text-shadow: 0 0 18px var(--cyan-glow); font-size: 22px; }
     .brand-badge { font-size: 10.5px; font-weight: 700; background: var(--cyan-dim); color: var(--cyan); padding: 4px 9px; border-radius: 7px; border: 1px solid rgba(0,243,255,0.25); }
-
-    .user-auth-bar { display: none; align-items: center; gap: 10px; }
-    .user-auth-email { font-size: 12px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
 
     .app-views { position: relative; }
     .app-view { display: none; flex-direction: column; gap: 18px; }
@@ -216,7 +211,7 @@
     @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .rest-timer-val { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 800; color: var(--cyan); }
 
-    .modal-overlay { position: fixed; inset: 0; background: rgba(7, 9, 14, 0.85); backdrop-filter: blur(10px); display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 100; overflow-y: auto; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(7, 9, 14, 0.82); backdrop-filter: blur(10px); display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 100; overflow-y: auto; }
     .modal-overlay.active { display: flex; }
     .modal-content { width: 100%; max-width: 720px; max-height: 90vh; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 18px; position: relative; }
     .modal-header { display: flex; justify-content: space-between; align-items: center; }
@@ -295,6 +290,7 @@
       .rest-modal { left: 12px; right: 12px; bottom: 88px; justify-content: space-between; }
     }
 
+    /* Analytics */
     .analytics-card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius-md); padding: 18px; display: flex; flex-direction: column; gap: 14px; }
     .analytics-header { font-size: 15px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; }
     .range-toggle { display: inline-flex; gap: 8px; }
@@ -315,14 +311,17 @@
     .chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
     .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
+    /* Superset */
     .exercise-card.superset { border-color: rgba(251, 191, 36, 0.45); box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 0 24px rgba(251,191,36,0.18); }
     .superset-badge { background: rgba(251, 191, 36, 0.14); color: #fcd34d; border: 1px solid rgba(251,191,36,0.35); font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; }
     .btn-superset { border-color: rgba(251,191,36,0.25); color: #fcd34d; }
     .btn-superset:hover { background: rgba(251, 191, 36, 0.15); border-color: rgba(251,191,36,0.45); }
     .btn-superset.active { background: rgba(251, 191, 36, 0.22); border-color: rgba(251,191,36,0.55); color: #fff; }
 
+    /* Plate visualizer */
     .plate-svg { max-width: 100%; height: auto; }
 
+    /* Celebration */
     .celebration-overlay { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; z-index: 200; pointer-events: none; padding: 20px; }
     .celebration-overlay.active { display: flex; }
     .celebration-badge { background: var(--card-solid); border: 1px solid rgba(255,255,255,0.12); color: var(--text); padding: 18px 28px; border-radius: var(--radius-lg); font-size: 18px; font-weight: 800; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); animation: badgeIn .45s ease; backdrop-filter: blur(12px); }
@@ -330,6 +329,7 @@
     .celebration-badge.streak { border-color: var(--coral); color: var(--coral); box-shadow: 0 0 30px var(--coral-glow); }
     @keyframes badgeIn { from { opacity: 0; transform: translateY(20px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
+    /* Settings snapshots */
     .snapshot-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius-sm); background: rgba(15,23,42,0.5); border: 1px solid rgba(255,255,255,0.06); }
     .snapshot-actions { display: flex; gap: 8px; }
     .settings-file { color: var(--text); background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-sm); padding: 8px; font-size: 13px; width: 100%; }
@@ -337,34 +337,12 @@
 </head>
 <body>
 
-<!-- Supabase Auth Modal Overlay -->
-<div class="modal-overlay active" id="authOverlay" style="align-items: center; z-index: 300;">
-  <div class="modal-content" style="max-width: 420px; text-align: center;">
-    <div class="brand-logo" style="justify-content: center; margin-bottom: 8px;">
-      <span class="logo-bolt">⚡</span>
-      <span>IronTrack</span>
-      <span class="brand-badge">PRO SPLIT</span>
-    </div>
-    <h2 style="font-size: 20px; font-weight: 800;">Sign In</h2>
-    <p style="font-size: 13px; color: var(--muted);">Enter your email to receive a passwordless magic link to sync your workouts.</p>
-    <form id="authForm" onsubmit="handleMagicLink(event)" style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
-      <input type="email" id="authEmail" class="input-field" placeholder="athlete@example.com" required style="padding: 12px; font-size: 14px; text-align: left;" />
-      <button type="submit" class="btn btn-primary" id="authBtn" style="justify-content: center;">Send Magic Link</button>
-      <div id="authMsg" style="font-size: 13px; display: none; line-height: 1.4;"></div>
-    </form>
-  </div>
-</div>
-
 <div class="app-shell">
   <div class="app-topbar">
     <div class="brand-logo">
       <span class="logo-bolt">⚡</span>
       <span>IronTrack</span>
       <span class="brand-badge">PRO SPLIT</span>
-    </div>
-    <div class="user-auth-bar" id="userAuthBar">
-      <span class="user-auth-email" id="userEmailDisplay"></span>
-      <button class="btn-xs" style="color: #fca5a5; border-color: rgba(239,68,68,0.3);" onclick="handleSignOut()">Log Out</button>
     </div>
   </div>
 
@@ -537,132 +515,6 @@
 </div>
 
 <script>
-// ==========================================
-// SUPABASE CLIENT INITIALIZATION
-// Replace with your project details from Supabase Dashboard -> Project Settings -> API
-// ==========================================
-const SUPABASE_URL = 'https://jlwaebsftvtqghmhhess.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impsd2FlYnNmdHZ0cWdobWhoZXNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0Mjk1OTgsImV4cCI6MjEwNDAwNTU5OH0.6bb0zIkWxUpX31KIckqNVWVBb0p2QRhl10yeUlA5e_g';
-const supabaseClient = (window.supabase && SUPABASE_URL !== 'YOUR_SUPABASE_URL') 
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
-  : null;
-
-async function handleMagicLink(e) {
-  e.preventDefault();
-  const email = document.getElementById('authEmail').value.trim();
-  const btn = document.getElementById('authBtn');
-  const msg = document.getElementById('authMsg');
-
-  if (!supabaseClient) {
-    msg.textContent = 'Please configure your SUPABASE_URL and SUPABASE_ANON_KEY in index.html first.';
-    msg.style.color = '#ef4444';
-    msg.style.display = 'block';
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = 'Sending...';
-  msg.style.display = 'none';
-
-  const { error } = await supabaseClient.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: window.location.origin }
-  });
-
-  if (error) {
-    msg.textContent = error.message;
-    msg.style.color = '#ef4444';
-    msg.style.display = 'block';
-    btn.disabled = false;
-    btn.textContent = 'Send Magic Link';
-  } else {
-    msg.textContent = 'Magic link sent! Check your email to sign in.';
-    msg.style.color = 'var(--cyan)';
-    msg.style.display = 'block';
-    btn.textContent = 'Link Sent';
-  }
-}
-
-async function handleSignOut() {
-  if (supabaseClient) await supabaseClient.auth.signOut();
-  window.location.reload();
-}
-
-async function initAuth() {
-  if (!supabaseClient) return;
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  updateAuthUI(session);
-
-  supabaseClient.auth.onAuthStateChange((_event, session) => {
-    updateAuthUI(session);
-  });
-}
-// async function handleMagicLink(e) {
-//   e.preventDefault();
-//   const email = document.getElementById('authEmail').value.trim();
-//   const btn = document.getElementById('authBtn');
-//   const msg = document.getElementById('authMsg');
-
-//   if (!supabase) {
-//     msg.textContent = 'Please configure your SUPABASE_URL and SUPABASE_ANON_KEY in index.html first.';
-//     msg.style.color = '#ef4444';
-//     msg.style.display = 'block';
-//     return;
-//   }
-
-//   btn.disabled = true;
-//   btn.textContent = 'Sending...';
-//   msg.style.display = 'none';
-
-//   const { error } = await supabase.auth.signInWithOtp({
-//     email,
-//     options: { emailRedirectTo: window.location.origin }
-//   });
-
-//   if (error) {
-//     msg.textContent = error.message;
-//     msg.style.color = '#ef4444';
-//     msg.style.display = 'block';
-//     btn.disabled = false;
-//     btn.textContent = 'Send Magic Link';
-//   } else {
-//     msg.textContent = 'Magic link sent! Check your email to sign in.';
-//     msg.style.color = 'var(--cyan)';
-//     msg.style.display = 'block';
-//     btn.textContent = 'Link Sent';
-//   }
-// }
-
-// async function handleSignOut() {
-//   if (supabase) await supabase.auth.signOut();
-//   window.location.reload();
-// }
-
-// function updateAuthUI(session) {
-//   const overlay = document.getElementById('authOverlay');
-//   const userBar = document.getElementById('userAuthBar');
-//   const userDisplay = document.getElementById('userEmailDisplay');
-
-//   if (session && session.user) {
-//     overlay.classList.remove('active');
-//     userBar.style.display = 'flex';
-//     userDisplay.textContent = session.user.email;
-//   } else {
-//     overlay.classList.add('active');
-//     userBar.style.display = 'none';
-//   }
-// }
-
-// async function initAuth() {
-//   if (!supabase) return;
-//   const { data: { session } } = await supabase.auth.getSession();
-//   updateAuthUI(session);
-
-//   supabase.auth.onAuthStateChange((_event, session) => {
-//     updateAuthUI(session);
-//   });
-// }
-
 // ----- Workout Database -----
 const EXERCISE_TYPES = {
   'd1_incline':'compound','d1_midchest':'isolation','d1_lowerchest':'isolation',
@@ -760,103 +612,6 @@ const WORKOUT = {
         E('d1_brachialis','d1_br','Brachialis & Width','Brachialis / Forearm Width','2 × 8–12 + dropset | Rest 60–90s | RIR 1–2',75,2,[
           V('cable_rope','Cable Rope Hammer Curl','Floor dual cable rope','Neutral grip. Flare rope slightly at peak; strict 2–3s negative.',[[25,10,2],[25,8,0]]),
           V('db_hammer','DB Hammer Curl','Standing neutral hammer','Neutral grip. Strict 2–3s controlled negative.',[[12.5,10,2],[12.5,8,0]])
-        ])
-      ]}
-    ]
-  },
-  2: {
-    title: '⚡ Legs • Calves • Core',
-    badge: 'Day 2 Focus',
-    badgeClass: 'badge-d2',
-    sub: 'Quad Hypertrophy, Posterior Chain & Core Routine',
-    sections: [
-      { title: 'Quads & Glutes', tag: 'd2_tag_quads', color: 'red', exercises: [
-        E('d2_smithSquat','d2_ss','Barbell Smith Back Squat','Quads & Glutes','2 × 6–10 | Rest 2–3m | RIR 1–2',150,2,[
-          V('smith_squat','Smith Machine','Feet shoulder-width, toes out slightly','Feet shoulder-width, toes out slightly. 🔥 Drop ~5% on Set 2.',[[80,8,2],[75,8,1]])
-        ]),
-        E('d2_legext','d2_le','Leg Extension','Quads','3 × 15–20 + dropset | Rest 60–90s | RIR 0–2',90,3,[
-          V('leg_ext_mach','Leg Extension Machine','Pad beneath ankle joint','Control negative; hold 1s squeeze at top. 🔥 Dropset on last set.',[[50,15,2],[50,15,1],[30,15,0]])
-        ]),
-        E('d2_quadpress','d2_qp','Unilateral Quad / Glute Press','Quads & Glutes','2 × 8–12 | Rest 90–120s | RIR 1–2',105,2,[
-          V('bulgarian','Bulgarian Split Squat','Bench at knee height','Torso slight forward lean for glutes / upright for quads. Control descent.',[[20,10,2],[20,10,1]]),
-          V('db_lunges','DB Lunges','Walking or in-place','Torso slight forward lean for glutes / upright for quads. Control descent.',[[20,10,2],[20,10,1]])
-        ])
-      ]},
-      { title: 'Hams & Hips', tag: 'd2_tag_hams', color: 'blue', exercises: [
-        E('d2_hamstring','d2_hm','Hamstring Isolation','Hamstrings','2 × 10–15 | Rest 60–90s | RIR 1–2',90,2,[
-          V('seated_curl','Seated Leg Curl','Hips pinned down','Hips strapped/pinned down firmly. Slow eccentric stretch.',[[40,12,2],[40,10,1]]),
-          V('lying_curl','Lying Leg Curl','Hips pinned down','Hips strapped/pinned down firmly. Slow eccentric stretch.',[[35,12,2],[35,10,1]])
-        ]),
-        E('d2_adductor','d2_ad','Hip Adduction','Adductors','2 × 12–20 | Rest 60s | RIR 1–2',60,2,[
-          V('mach_adductor','Machine Adductor','Seated upright','Full stretch at open position; pause 1s at full squeeze.',[[40,15,2],[40,15,1]])
-        ]),
-        E('d2_abductor','d2_ab','Hip Abduction','Glute Medius','2 × 12–20 | Rest 60s | RIR 1–2',60,2,[
-          V('mach_abductor','Machine Abductor','Hinge slightly forward','Hinge slightly forward at hips for maximum glute recruitment.',[[40,15,2],[40,15,1]])
-        ])
-      ]},
-      { title: 'Calves & Core', tag: 'd2_tag_calves_core', color: 'green', exercises: [
-        E('d2_calf','d2_cl','Calf Isolation','Gastrocnemius','3 × 12–20 + dropset | Rest 60–90s | RIR 1–2',75,3,[
-          V('smith_calf','Smith Machine Calf Raise','Elevated toes for deep stretch','Elevated toes for deep stretch. 🔥 Dropset on last set. Keep reps >12.',[[40,15,2],[40,15,1],[20,15,0]]),
-          V('standing_calf_mach','Standing Machine Calf Raise','Elevated toes for deep stretch','Elevated toes for deep stretch. 🔥 Dropset on last set. Keep reps >12.',[[60,15,2],[60,15,1]])
-        ]),
-        E('d2_lowerabs','d2_la','Lower Abs','Lower Abdominals','2–3 × 10–20 | Rest 60s | RIR 1–2',60,3,[
-          V('hanging_raise','Hanging / Captain\'s Chair Leg Raise','Bodyweight','Posterior pelvic tilt; curl pelvis up, do not just swing legs.',[[0,15,2],[0,15,1],[0,12,1]])
-        ]),
-        E('d2_upperabs','d2_ua','Upper / Total Abs','Upper Abdominals','2–3 × 12–20 | Rest 60s | RIR 1–2',60,3,[
-          V('mach_crunch','Machine Crunches','Pad across chest','Exhale fully at bottom; crunch ribcage down toward pelvis.',[[45,15,2],[45,15,1],[40,12,1]]),
-          V('cable_crunch','Cable Crunch','High pulley rope / mat','Exhale fully at bottom; crunch ribcage down toward pelvis.',[[25,15,2],[25,15,1],[20,12,1]])
-        ])
-      ]}
-    ]
-  },
-  3: {
-    title: '⚡ Back • Rear Delts • Triceps • Traps',
-    badge: 'Day 3 Focus',
-    badgeClass: 'badge-d3',
-    sub: 'Pull Hypertrophy & Arm Thickness Routine',
-    sections: [
-      { title: 'Back Width & Thickness', tag: 'd3_tag_back', color: 'red', exercises: [
-        E('d3_backthickness','d3_bt','Upper / Mid Back Thickness','Back Thickness','2–3 × 6–10 | Rest 2–3m | RIR 1–2',150,3,[
-          V('tbar','T-Bar Row','Lower / upper grip','Chest firmly on pad. Drive elbows out ~45°–60°; squeeze shoulder blades.',[[40,9,2],[40,8,1],[40,7,1]]),
-          V('bent_row','Bent-Over Barbell Row','Overhand grip','Drive elbows out ~45°–60°; squeeze shoulder blades.',[[50,8,2],[50,8,1],[50,8,1]]),
-          V('machine_row','Wide-Grip Machine Row','Chest on pad','Chest firmly on pad. Drive elbows out ~45°–60°; squeeze shoulder blades.',[[55,10,2],[55,8,1],[55,8,1]])
-        ]),
-        E('d3_latwidth','d3_lw','Vertical Pull / Lat Width','Latissimus Dorsi','2 × 8–12 | Rest 90–120s | RIR 1–2',105,2,[
-          V('mag_pulldown','Mag-Grip Lat Pulldown','Hole 5','Drive elbows down into back pockets; slight torso arch. Control stretch up.',[[50,10,2],[50,7,1]]),
-          V('pullups','Close-Grip Pull-Ups','Bodyweight (BW)','Drive elbows down into back pockets; slight torso arch. Control stretch up.',[[0,8,2],[0,6,1]]),
-          V('underhand_pulldown','Underhand Pulldown','Close-grip underhand','Drive elbows down into back pockets; slight torso arch. Control stretch up.',[[50,10,2],[50,8,1]])
-        ]),
-        E('d3_unilat','d3_ul','Unilateral Lat Isolation','Lats','2 × 10–15 | Rest 60–90s | RIR 1–2',90,2,[
-          V('single_arm_cable','Single-Arm Cable Pulldown','D-Handle','Lean torso toward working side. Drive elbow down to hip crest; no torso rotation.',[[25,12,2],[25,12,1]]),
-          V('half_kneeling','Half-Kneeling Pulldown','Single pulley','Lean torso toward working side. Drive elbow down to hip crest; no torso rotation.',[[25,12,2],[25,12,1]])
-        ])
-      ]},
-      { title: 'Rear Delts', tag: 'd3_tag_reardelts', color: 'coral', exercises: [
-        E('d3_reardelt','d3_rd','Rear Delt Isolation','Rear Delts','2–3 × 12–20 + dropset | Rest 60–90s | RIR 0–2',75,3,[
-          V('rev_pec_dec','Reverse Pec Dec Fly','Hole 7','Pull in 30° scapular plane. 🔥 Dropset on last set.',[[30,15,2],[30,15,1],[15,15,0]]),
-          V('single_arm_cable_fly','Single-Arm Cable Fly','Shoulder height','Pull in 30° scapular plane. 🔥 Dropset on last set.',[[10,15,2],[10,15,1],[5,15,0]]),
-          V('cable_rear_delt','Cable Rear Delt Fly','Shoulder height, dual pulleys','Pull in 30° scapular plane. 🔥 Dropset on last set.',[[15,15,2],[15,15,1],[10,12,0]])
-        ])
-      ]},
-      { title: 'Triceps', tag: 'd3_tag_triceps', color: 'blue', exercises: [
-        E('d3_tricepskull','d3_ts','Triceps (Long Head Stretch)','Triceps Long Head','2–3 × 8–12 | Rest 90s | RIR 1–2',90,3,[
-          V('db_skull','DB Skull Crusher','Flat / slight incline bench','Upper arms angled slightly back past 90°; get deep elbow stretch.',[[15,10,2],[15,10,1],[12.5,10,1]]),
-          V('ez_skull','EZ-Bar Skull Crusher','EZ-Bar','Upper arms angled slightly back past 90°; get deep elbow stretch.',[[30,10,2],[30,8,1],[30,8,1]])
-        ]),
-        E('d3_triceppushdown','d3_tp','Triceps (Lateral / Medial)','Triceps Lateral & Medial Heads','2 × 10–15 | Rest 60–90s | RIR 1–2',75,2,[
-          V('vulken','Vulken Grip Pushdown','Single pulley, overhand','Pin elbows to ribs. Flare out at bottom; lock out cleanly.',[[20,12,2],[20,12,1]]),
-          V('rope','Rope Pushdown','Single pulley rope','Pin elbows to ribs. Flare out at bottom; lock out cleanly.',[[20,12,2],[20,12,1]])
-        ]),
-        E('d3_tricepoverhead','d3_to','Triceps Extension','Triceps Long Head','2 × 10–15 | Rest 60–90s | RIR 1–2',75,2,[
-          V('single_arm_pushdown','Single-Arm Pushdown','Single pulley, vulken grip','Pin elbow to side; focus on full extension and lock at bottom.',[[10,12,2],[10,12,1]]),
-          V('overhead_ext','Overhead Cable Extension','Pulley at shoulder/chest height, face away','Face away, keep elbow stable; get full stretch behind head.',[[15,12,2],[15,12,1]])
-        ])
-      ]},
-      { title: 'Traps', tag: 'd3_tag_traps', color: 'green', exercises: [
-        E('d3_trap','d3_tr','Trap Hypertrophy','Upper Trapezius','3 × 8–15 | Rest 90–120s | RIR 1–2',105,3,[
-          V('shrug_mach','Shrug Machine','Seat adjusted, arms straight','Straight arms; elevate shoulders straight up to ears. Hold 1s peak squeeze.',[[60,12,2],[60,10,1],[60,10,1]]),
-          V('smith_shrug','Smith Shrugs','Arms straight at sides','Straight arms; elevate shoulders straight up to ears. Hold 1s peak squeeze.',[[50,10,2],[50,10,1],[50,10,1]]),
-          V('db_shrug','DB Shrugs','Arms straight, neutral grip','Straight arms; elevate shoulders straight up to ears. Hold 1s peak squeeze.',[[30,12,2],[30,12,1],[30,10,1]])
         ])
       ]}
     ]
@@ -2219,7 +1974,6 @@ function init() {
   }, 1000);
 
   registerSW();
-  initAuth();
 }
 
 window.ironStart = Date.now();
