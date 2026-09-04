@@ -1516,21 +1516,32 @@ function cancelRestTimer() {
   document.getElementById('restModal').classList.remove('active');
 }
 
-function playBeep() {
-  if (!document.getElementById('soundToggle').checked) return;
+// ----- Audio Context & Beep Unlocker -----
+function unlockAudio() {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!audioCtx) audioCtx = new AudioContext();
+    if (!audioCtx) {
+      audioCtx = new AudioContext();
+    }
     if (audioCtx.state === 'suspended') {
       audioCtx.resume();
     }
+  } catch (e) {
+    console.warn('Audio unlock failed:', e);
+  }
+}
+
+function playBeep() {
+  if (!document.getElementById('soundToggle').checked) return;
+  try {
+    unlockAudio();
     const now = audioCtx.currentTime;
     [0, 0.15, 0.3].forEach((delay, i) => {
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(i === 2 ? 880 : 660, now + delay);
-      gain.gain.setValueAtTime(0.2, now + delay);
+      gain.gain.setValueAtTime(0.3, now + delay);
       gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.1);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
@@ -1538,7 +1549,7 @@ function playBeep() {
       osc.stop(now + delay + 0.12);
     });
   } catch (e) {
-    console.warn('Audio context blocked or unsupported:', e);
+    console.warn('Audio playback error:', e);
   }
 }
 
@@ -2338,6 +2349,7 @@ function init() {
   });
 
   document.addEventListener('click', e => {
+    unlockAudio(); // Unlocks audio context on any user tap/click
     const el = e.target.closest('button, .bottom-tab, .nav-btn, .sched-item, .check-btn, .stepper-btn');
     if (el) haptic(15);
   });
