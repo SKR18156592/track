@@ -543,7 +543,7 @@
 // ==========================================
 const SUPABASE_URL = 'https://jlwaebsftvtqghmhhess.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impsd2FlYnNmdHZ0cWdobWhoZXNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0Mjk1OTgsImV4cCI6MjEwNDAwNTU5OH0.6bb0zIkWxUpX31KIckqNVWVBb0p2QRhl10yeUlA5e_g';
-const supabase = (window.supabase && SUPABASE_URL !== 'YOUR_SUPABASE_URL') 
+const supabaseClient = (window.supabase && SUPABASE_URL !== 'YOUR_SUPABASE_URL') 
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
   : null;
 
@@ -553,7 +553,7 @@ async function handleMagicLink(e) {
   const btn = document.getElementById('authBtn');
   const msg = document.getElementById('authMsg');
 
-  if (!supabase) {
+  if (!supabaseClient) {
     msg.textContent = 'Please configure your SUPABASE_URL and SUPABASE_ANON_KEY in index.html first.';
     msg.style.color = '#ef4444';
     msg.style.display = 'block';
@@ -564,7 +564,7 @@ async function handleMagicLink(e) {
   btn.textContent = 'Sending...';
   msg.style.display = 'none';
 
-  const { error } = await supabase.auth.signInWithOtp({
+  const { error } = await supabaseClient.auth.signInWithOtp({
     email,
     options: { emailRedirectTo: window.location.origin }
   });
@@ -584,34 +584,84 @@ async function handleMagicLink(e) {
 }
 
 async function handleSignOut() {
-  if (supabase) await supabase.auth.signOut();
+  if (supabaseClient) await supabaseClient.auth.signOut();
   window.location.reload();
 }
 
-function updateAuthUI(session) {
-  const overlay = document.getElementById('authOverlay');
-  const userBar = document.getElementById('userAuthBar');
-  const userDisplay = document.getElementById('userEmailDisplay');
-
-  if (session && session.user) {
-    overlay.classList.remove('active');
-    userBar.style.display = 'flex';
-    userDisplay.textContent = session.user.email;
-  } else {
-    overlay.classList.add('active');
-    userBar.style.display = 'none';
-  }
-}
-
 async function initAuth() {
-  if (!supabase) return;
-  const { data: { session } } = await supabase.auth.getSession();
+  if (!supabaseClient) return;
+  const { data: { session } } = await supabaseClient.auth.getSession();
   updateAuthUI(session);
 
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
     updateAuthUI(session);
   });
 }
+// async function handleMagicLink(e) {
+//   e.preventDefault();
+//   const email = document.getElementById('authEmail').value.trim();
+//   const btn = document.getElementById('authBtn');
+//   const msg = document.getElementById('authMsg');
+
+//   if (!supabase) {
+//     msg.textContent = 'Please configure your SUPABASE_URL and SUPABASE_ANON_KEY in index.html first.';
+//     msg.style.color = '#ef4444';
+//     msg.style.display = 'block';
+//     return;
+//   }
+
+//   btn.disabled = true;
+//   btn.textContent = 'Sending...';
+//   msg.style.display = 'none';
+
+//   const { error } = await supabase.auth.signInWithOtp({
+//     email,
+//     options: { emailRedirectTo: window.location.origin }
+//   });
+
+//   if (error) {
+//     msg.textContent = error.message;
+//     msg.style.color = '#ef4444';
+//     msg.style.display = 'block';
+//     btn.disabled = false;
+//     btn.textContent = 'Send Magic Link';
+//   } else {
+//     msg.textContent = 'Magic link sent! Check your email to sign in.';
+//     msg.style.color = 'var(--cyan)';
+//     msg.style.display = 'block';
+//     btn.textContent = 'Link Sent';
+//   }
+// }
+
+// async function handleSignOut() {
+//   if (supabase) await supabase.auth.signOut();
+//   window.location.reload();
+// }
+
+// function updateAuthUI(session) {
+//   const overlay = document.getElementById('authOverlay');
+//   const userBar = document.getElementById('userAuthBar');
+//   const userDisplay = document.getElementById('userEmailDisplay');
+
+//   if (session && session.user) {
+//     overlay.classList.remove('active');
+//     userBar.style.display = 'flex';
+//     userDisplay.textContent = session.user.email;
+//   } else {
+//     overlay.classList.add('active');
+//     userBar.style.display = 'none';
+//   }
+// }
+
+// async function initAuth() {
+//   if (!supabase) return;
+//   const { data: { session } } = await supabase.auth.getSession();
+//   updateAuthUI(session);
+
+//   supabase.auth.onAuthStateChange((_event, session) => {
+//     updateAuthUI(session);
+//   });
+// }
 
 // ----- Workout Database -----
 const EXERCISE_TYPES = {
