@@ -1,0 +1,14 @@
+{
+  "name": "IronTrack PWA",
+  "short_name": "IronTrack",
+  "description": "Progressive iron workout tracker with real-time Supabase sync",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0a0a0f",
+  "background_color": "#0a0a0f",
+  "icons": [
+    { "src": "/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/maskable-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
