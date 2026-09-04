@@ -556,8 +556,8 @@
 // 1. SUPABASE CLIENT & AUTH CONFIGURATION
 // Paste your exact credentials from Supabase Dashboard -> Project Settings -> API
 // ==========================================
-const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL = 'https://jlwaebsftvtqghmhhess.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impsd2FlYnNmdHZ0cWdobWhoZXNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0Mjk1OTgsImV4cCI6MjEwNDAwNTU5OH0.6bb0zIkWxUpX31KIckqNVWVBb0p2QRhl10yeUlA5e_g';
 
 const supabaseClient = (window.supabase && SUPABASE_URL !== 'YOUR_SUPABASE_URL') 
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
