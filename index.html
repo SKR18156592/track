@@ -1519,8 +1519,11 @@ function cancelRestTimer() {
 function playBeep() {
   if (!document.getElementById('soundToggle').checked) return;
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!audioCtx) audioCtx = new AudioContext();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
     const now = audioCtx.currentTime;
     [0, 0.15, 0.3].forEach((delay, i) => {
       const osc = audioCtx.createOscillator();
@@ -1529,10 +1532,14 @@ function playBeep() {
       osc.frequency.setValueAtTime(i === 2 ? 880 : 660, now + delay);
       gain.gain.setValueAtTime(0.2, now + delay);
       gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.1);
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.start(now + delay); osc.stop(now + delay + 0.12);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now + delay);
+      osc.stop(now + delay + 0.12);
     });
-  } catch (e) {}
+  } catch (e) {
+    console.warn('Audio context blocked or unsupported:', e);
+  }
 }
 
 // ----- Session actions -----
@@ -1754,17 +1761,19 @@ function compute1RM() {
 }
 
 const PLATE_STYLE = {
+  50: { w: 46, h: 190, color: '#dc2626', glow: 'rgba(220,38,38,0.35)' },
   25: { w: 42, h: 180, color: '#ef4444', glow: 'rgba(239,68,68,0.35)' },
   20: { w: 38, h: 168, color: '#3b82f6', glow: 'rgba(59,130,246,0.35)' },
   15: { w: 34, h: 156, color: '#22c55e', glow: 'rgba(34,197,94,0.35)' },
   10: { w: 30, h: 144, color: '#eab308', glow: 'rgba(234,179,8,0.35)' },
   5:  { w: 26, h: 132, color: '#a855f7', glow: 'rgba(168,85,247,0.35)' },
   2.5:{ w: 22, h: 120, color: '#f97316', glow: 'rgba(249,115,22,0.35)' },
-  1.25:{w: 18, h: 108, color: '#06b6d4', glow: 'rgba(6,182,212,0.35)' }
+  1.25:{w: 18, h: 108, color: '#06b6d4', glow: 'rgba(6,182,212,0.35)' },
+  0.5: { w: 14, h: 96,  color: '#cbd5e1', glow: 'rgba(203,213,225,0.35)' }
 };
 
 function getPlateBreakdown(side) {
-  const plates = [25, 20, 15, 10, 5, 2.5, 1.25];
+  const plates = [50, 25, 20, 15, 10, 5, 2.5, 1.25, 0.5];
   let rem = side, list = [];
   plates.forEach(p => {
     let c = Math.floor(rem / p);
@@ -1836,7 +1845,7 @@ function computePlates() {
   const counts = {};
   list.forEach(p => counts[p] = (counts[p] || 0) + 1);
   const used = Object.keys(counts).map(Number).sort((a,b)=>b-a).map(p => `${counts[p]}× ${p}kg`);
-  breakText.textContent = used.length ? `Plates per side: ${used.join(' • ')} ${rem > 0 ? `(+${rem.toFixed(2)}kg remainder)` : ''}` : 'Requires fractional plates under 1.25kg.';
+  breakText.textContent = used.length ? `Plates per side: ${used.join(' • ')} ${rem > 0 ? `(+${rem.toFixed(2)}kg remainder)` : ''}` : 'Requires fractional plates under 0.5kg.';
   renderBarbellSVG(side, total);
 }
 
