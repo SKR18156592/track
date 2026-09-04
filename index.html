@@ -207,7 +207,7 @@
     .check-btn:hover { background: var(--cyan-dim); color: var(--cyan); border-color: var(--cyan); }
     .check-btn.completed { background: var(--lime); color: #051a03; border-color: var(--lime); box-shadow: 0 0 22px var(--lime-glow), inset 0 0 0 1px #fff; animation: popCheck .35s ease; }
     @keyframes popCheck { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
-    .ex-actions-bar { display: flex; gap: 8px; }
+    .ex-actions-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
     .btn-xs { background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.1); color: #e2e8f0; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all .2s ease; min-height: 40px; }
     .btn-xs:hover { background: rgba(51, 65, 85, 0.9); color: #fff; border-color: rgba(255,255,255,0.2); }
@@ -454,6 +454,7 @@
 
       <div class="bottom-bar">
         <button class="btn btn-secondary" onclick="openHistoryModal()">📋 Log History</button>
+        <button class="btn btn-info" onclick="openAddExModal()">➕ Add Exercise</button>
         <button class="btn btn-secondary" onclick="resetCurrentDayForm()">🔄 Reset Day</button>
         <button class="btn btn-warning" onclick="updateCurrentDayPresets()">📌 Update Presets</button>
         <button class="btn btn-primary" onclick="finishCurrentDayWorkout()">💾 Save Session</button>
@@ -551,6 +552,53 @@
 
 <!-- Toast Notifications Container -->
 <div class="toast-container" id="toastContainer"></div>
+
+<!-- Add Custom Exercise Modal -->
+<div class="modal-overlay" id="addExModalOverlay" onclick="if(event.target===this) closeAddExModal()">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h2>➕ Add Custom Exercise</h2>
+      <button class="btn-xs" onclick="closeAddExModal()">✕</button>
+    </div>
+    <form id="addExForm" onsubmit="handleSaveCustomExercise(event)" style="display: flex; flex-direction: column; gap: 14px;">
+      <div class="meta-field">
+        <label>Target Day</label>
+        <select id="exDay" class="machine-dropdown" style="width:100%;">
+          <option value="1">Day 1: Chest • Shoulders • Biceps</option>
+          <option value="2">Day 2: Legs • Calves • Core</option>
+          <option value="3">Day 3: Back • Rear Delts • Triceps • Traps</option>
+        </select>
+      </div>
+      <div class="meta-field">
+        <label>Exercise Title</label>
+        <input type="text" id="exTitle" class="input-field" placeholder="e.g., Cable Crossover" required style="text-align: left; padding: 10px;" />
+      </div>
+      <div class="meta-field">
+        <label>Target Muscle / Focus</label>
+        <input type="text" id="exTarget" class="input-field" placeholder="e.g., Lower Pecs" required style="text-align: left; padding: 10px;" />
+      </div>
+      <div class="meta-field">
+        <label>Exercise Type</label>
+        <select id="exType" class="machine-dropdown" style="width:100%;">
+          <option value="isolation">Isolation (Rest ~75s)</option>
+          <option value="compound">Compound (Rest ~150s)</option>
+        </select>
+      </div>
+      <div class="meta-field">
+        <label>Equipment / Variation Name</label>
+        <input type="text" id="exVarLabel" class="input-field" placeholder="e.g., Adjustable Pulleys" required style="text-align: left; padding: 10px;" />
+      </div>
+      <div class="meta-field">
+        <label>Default Sets Scheme (e.g., 3 × 10)</label>
+        <input type="text" id="exScheme" class="input-field" value="3 × 10–12 | Rest 75s" style="text-align: left; padding: 10px;" />
+      </div>
+      <div class="modal-footer" style="margin-top: 8px;">
+        <button type="button" class="btn btn-secondary" onclick="closeAddExModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Exercise</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <div class="modal-overlay" id="historyModalOverlay" onclick="if(event.target===this) closeHistoryModal()">
   <div class="modal-content">
@@ -798,7 +846,7 @@ function subscribeToRealtimeSync() {
 }
 
 // ----- Workout Database -----
-const EXERCISE_TYPES = {
+const BASE_EXERCISE_TYPES = {
   'd1_incline':'compound','d1_midchest':'isolation','d1_lowerchest':'isolation',
   'd1_shoulder':'compound','d1_sidedelt':'isolation','d1_bicepmid':'isolation','d1_bicepstretch':'isolation','d1_brachialis':'isolation',
   'd2_smithSquat':'compound','d2_legext':'isolation','d2_quadpress':'compound',
@@ -808,18 +856,34 @@ const EXERCISE_TYPES = {
   'd3_reardelt':'isolation','d3_tricepskull':'isolation','d3_triceppushdown':'isolation','d3_tricepoverhead':'isolation','d3_trap':'isolation'
 };
 
-const MUSCLE_GROUP = {
+const BASE_MUSCLE_GROUP = {
   d1_incline:'chest', d1_midchest:'chest', d1_lowerchest:'chest',
   d3_backthickness:'back', d3_latwidth:'back', d3_unilat:'back',
   d2_smithSquat:'legs', d2_legext:'legs', d2_quadpress:'legs', d2_hamstring:'legs', d2_adductor:'legs', d2_abductor:'legs', d2_calf:'legs',
   d1_shoulder:'shoulders', d1_sidedelt:'shoulders', d3_reardelt:'shoulders', d3_trap:'shoulders',
   d1_bicepmid:'arms', d1_bicepstretch:'arms', d1_brachialis:'arms', d3_tricepskull:'arms', d3_triceppushdown:'arms', d3_tricepoverhead:'arms'
 };
+
+// Dynamic type lookup including custom exercises
+function getExerciseType(cat) {
+  if (BASE_EXERCISE_TYPES[cat]) return BASE_EXERCISE_TYPES[cat];
+  const custom = getJ('iron_custom_exercises', []).find(e => e.category === cat);
+  return custom ? custom.exerciseType : 'isolation';
+}
+
+function getMuscleGroup(category) {
+  if (BASE_MUSCLE_GROUP[category]) return BASE_MUSCLE_GROUP[category];
+  const day = getCategoryDayIndex(category)?.day;
+  if (day === 1) return 'chest';
+  if (day === 2) return 'legs';
+  if (day === 3) return 'back';
+  return 'arms';
+}
+
 const MUSCLE_GROUP_ORDER = ['chest','back','legs','shoulders','arms'];
 const MUSCLE_GROUP_COLOR = { chest:'#ff007f', back:'#00f3ff', legs:'#39ff14', shoulders:'#ff4d4d', arms:'#fbbf24' };
 const MUSCLE_GROUP_ICON = { chest:'🏋️', back:'🔁', legs:'🦵', shoulders:'🎯', arms:'💪' };
 
-function getMuscleGroup(category) { return MUSCLE_GROUP[category] || null; }
 function getExerciseTitle(category) { const ex = FLAT_EXERCISES.find(e => e.category === category); return ex ? ex.title : category; }
 function getRestForCategory(category) { const ex = FLAT_EXERCISES.find(e => e.category === category); return ex ? ex.rest : 75; }
 function getCategoryDayIndex(category) {
@@ -841,11 +905,11 @@ function getSupersetId(category) {
 function epley1RM(w, r) { return (r === 1) ? w : (w * (1 + r / 30)); }
 const V = (value, label, setup, cue, sets) => ({ value, label, setup: setup ? '⚙️ Setup: ' + setup : '', cue: cue ? '💡 ' + cue : '', defaultSets: sets.map(s => ({ weight: s[0], reps: s[1], rir: s[2], tag: s[3] || 'Working', rpe: s[4] == null ? 7 : s[4] })) });
 const E = (category, prefix, title, target, scheme, rest, sets, variations) => {
-  const exerciseType = EXERCISE_TYPES[category] || 'isolation';
+  const exerciseType = getExerciseType(category);
   return { category, prefix, title, target, scheme, rest: exerciseType === 'compound' ? 150 : 75, defaultRows: sets, variations, exerciseType };
 };
 
-const WORKOUT = {
+const WORKOUT_BASE = {
   1: {
     title: '⚡ Chest • Shoulders • Biceps',
     badge: 'Day 1 Focus',
@@ -997,8 +1061,40 @@ const WORKOUT = {
   }
 };
 
-const FLAT_EXERCISES = [];
-Object.values(WORKOUT).forEach(day => day.sections.forEach(sec => sec.exercises.forEach(ex => FLAT_EXERCISES.push(ex))));
+let WORKOUT = JSON.parse(JSON.stringify(WORKOUT_BASE));
+let FLAT_EXERCISES = [];
+
+function rebuildWorkoutDatabase() {
+  WORKOUT = JSON.parse(JSON.stringify(WORKOUT_BASE));
+  const customExs = getJ('iron_custom_exercises', []);
+  customExs.forEach(c => {
+    const dayObj = WORKOUT[c.day];
+    if (dayObj && dayObj.sections.length > 0) {
+      // Add custom exercise to the first section of that day
+      dayObj.sections[0].exercises.push({
+        category: c.category,
+        prefix: c.prefix,
+        title: c.title,
+        target: c.target,
+        scheme: c.scheme,
+        rest: c.rest,
+        exerciseType: c.exerciseType,
+        variations: [
+          {
+            value: 'custom_var',
+            label: c.varLabel,
+            setup: 'Custom exercise setup',
+            cue: 'Maintain proper form',
+            defaultSets: [[20, 10, 2, 'Working', 7], [20, 10, 1, 'Working', 7]]
+          }
+        ]
+      });
+    }
+  });
+
+  FLAT_EXERCISES = [];
+  Object.values(WORKOUT).forEach(day => day.sections.forEach(sec => sec.exercises.forEach(ex => FLAT_EXERCISES.push(ex))));
+}
 
 // ----- State & Persistence -----
 let activeDay = 1;
@@ -1032,6 +1128,39 @@ function updateRestMultiplierLabel() {
   const val = document.getElementById('restMultiplier')?.value || '1';
   const label = document.getElementById('restMultiplierValue');
   if (label) label.textContent = parseFloat(val).toFixed(2) + 'x';
+}
+
+// ----- Custom Exercise Handlers -----
+function openAddExModal() {
+  document.getElementById('addExModalOverlay').classList.add('active');
+}
+function closeAddExModal() {
+  document.getElementById('addExModalOverlay').classList.remove('active');
+  document.getElementById('addExForm').reset();
+}
+function handleSaveCustomExercise(e) {
+  e.preventDefault();
+  const day = parseInt(document.getElementById('exDay').value, 10);
+  const title = document.getElementById('exTitle').value.trim();
+  const target = document.getElementById('exTarget').value.trim();
+  const exerciseType = document.getElementById('exType').value;
+  const varLabel = document.getElementById('exVarLabel').value.trim();
+  const scheme = document.getElementById('exScheme').value.trim();
+
+  const category = 'cus_' + Date.now();
+  const prefix = 'cp_' + Math.random().toString(36).substring(2, 7);
+  const rest = exerciseType === 'compound' ? 150 : 75;
+
+  const newEx = { category, prefix, title, target, exerciseType, varLabel, scheme, rest, day };
+  const customList = getJ('iron_custom_exercises', []);
+  customList.push(newEx);
+  setJ('iron_custom_exercises', customList);
+
+  closeAddExModal();
+  rebuildWorkoutDatabase();
+  renderAll();
+  switchDayView(activeDay);
+  showToast('✨ Custom exercise added successfully!', 'success');
 }
 
 // ----- Rendering -----
@@ -1209,6 +1338,9 @@ function renderExerciseCard(ex, idx) {
   const sets = firstVar.defaultSets;
   const dec = getSupersetDecorations(ex.category);
   const supBtn = getSupersetBtn(ex.category);
+  const isCustom = ex.category.startsWith('cus_');
+  const deleteBtn = isCustom ? `<button class="btn-xs" style="color:#fca5a5; border-color:rgba(239,68,68,0.3);" onclick="deleteCustomExercise('${ex.category}')">🗑️ Delete</button>` : '';
+
   return `
   <div class="exercise-card ${idx===1 ? 'highlight' : ''} ${dec.cls}" data-category="${ex.category}" data-prefix="${ex.prefix}" data-exercise-type="${ex.exerciseType}" data-rest="${ex.rest}">
     <div class="ex-header">
@@ -1246,8 +1378,20 @@ function renderExerciseCard(ex, idx) {
       <button class="btn-xs" onclick="addSetRow('table_${ex.prefix}', '${ex.prefix}', ${ex.rest})">➕ Add Set</button>
       <button class="btn-xs" onclick="removeSetRow('table_${ex.prefix}')">➖ Remove Set</button>
       ${supBtn}
+      ${deleteBtn}
     </div>
   </div>`;
+}
+
+function deleteCustomExercise(category) {
+  if (!confirm('Delete this custom exercise?')) return;
+  let customList = getJ('iron_custom_exercises', []);
+  customList = customList.filter(c => c.category !== category);
+  setJ('iron_custom_exercises', customList);
+  rebuildWorkoutDatabase();
+  renderAll();
+  switchDayView(activeDay);
+  showToast('Custom exercise removed.', 'info');
 }
 
 function renderDay(dayNum) {
@@ -1593,7 +1737,7 @@ function computeRecordTonnage(record) {
 function computeRecordBest(record) {
   const best = {};
   record.exercises.forEach(ex => {
-    const isCompound = (ex.exerciseType || EXERCISE_TYPES[ex.category] || 'isolation') === 'compound';
+    const isCompound = getExerciseType(ex.category) === 'compound';
     let bestVal = 0;
     ex.sets.forEach(s => {
       if (s.done === false) return;
@@ -1606,7 +1750,7 @@ function computeRecordBest(record) {
         bestVal = Math.max(bestVal, w * r);
       }
     });
-    if (bestVal > 0) best[ex.category] = { type: ex.exerciseType, isCompound, value: bestVal, title: ex.name };
+    if (bestVal > 0) best[ex.category] = { type: getExerciseType(ex.category), isCompound, value: bestVal, title: ex.name };
   });
   return best;
 }
@@ -1948,7 +2092,7 @@ function getCompoundExerciseSeries() {
   history.forEach(h => {
     if (!h.exercises) return;
     h.exercises.forEach(ex => {
-      if ((ex.exerciseType || EXERCISE_TYPES[ex.category] || 'isolation') !== 'compound') return;
+      if (getExerciseType(ex.category) !== 'compound') return;
       if (!series[ex.category]) series[ex.category] = [];
       let best = 0;
       ex.sets.forEach(s => {
@@ -2337,6 +2481,7 @@ function deleteSnapshot(index) {
 // ----- Init -----
 function init() {
   addManifest();
+  rebuildWorkoutDatabase();
   renderAll();
   loadSettings();
   saveSettings();
