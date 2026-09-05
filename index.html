@@ -764,6 +764,10 @@ function updateUserSessionUI(user) {
 
 // Re-render analytics, history, and trackers after cloud pull (without wiping active inputs)
 function refreshAllUI() {
+  rebuildWorkoutDatabase();
+  renderAll();
+  const savedDay = getL('iron_active_day');
+  if (savedDay && WORKOUT[savedDay]) switchDayView(parseInt(savedDay, 10));
   renderHistory();
   renderSnapshotsList();
   updateProgress();
@@ -772,7 +776,7 @@ function refreshAllUI() {
   if (typeof renderMuscleGroupBarChart === 'function') renderMuscleGroupBarChart();
 }
 
-// Pull workouts from cloud into localStorage
+// Pull workouts and custom exercises from cloud into localStorage
 async function pullFromCloud(showIndicator = false) {
   if (!currentUser || !supabaseClient) return;
   try {
@@ -781,7 +785,7 @@ async function pullFromCloud(showIndicator = false) {
 
     const { data, error } = await supabaseClient
       .from('user_sync')
-      .select('history')
+      .select('history, custom_exercises')
       .eq('user_id', currentUser.id)
       .maybeSingle();
 
@@ -792,12 +796,18 @@ async function pullFromCloud(showIndicator = false) {
       return;
     }
 
-    if (data && data.history && Array.isArray(data.history)) {
-      setJ('iron_workout_history', data.history);
+    if (data) {
+      if (data.history && Array.isArray(data.history)) {
+        setJ('iron_workout_history', data.history);
+      }
+      if (data.custom_exercises && Array.isArray(data.custom_exercises)) {
+        setJ('iron_custom_exercises', data.custom_exercises);
+      }
       refreshAllUI();
     } else {
-      const local = getJ('iron_workout_history', []);
-      if (local.length > 0) await pushToCloud();
+      const localHist = getJ('iron_workout_history', []);
+      const localCust = getJ('iron_custom_exercises', []);
+      if (localHist.length > 0 || localCust.length > 0) await pushToCloud();
     }
 
     if (syncBtn && showIndicator) {
@@ -813,14 +823,16 @@ async function pullFromCloud(showIndicator = false) {
   }
 }
 
-// Push local workouts to cloud
+// Push local workouts and custom exercises to cloud
 async function pushToCloud() {
   if (!currentUser || !supabaseClient) return;
   try {
     const history = getJ('iron_workout_history', []);
+    const custom_exercises = getJ('iron_custom_exercises', []);
     await supabaseClient.from('user_sync').upsert({
       user_id: currentUser.id,
       history: history,
+      custom_exercises: custom_exercises,
       updated_at: new Date().toISOString()
     });
   } catch (err) {
@@ -844,8 +856,13 @@ function subscribeToRealtimeSync() {
         filter: `user_id=eq.${currentUser.id}`
       },
       (payload) => {
-        if (payload.new && Array.isArray(payload.new.history)) {
-          setJ('iron_workout_history', payload.new.history);
+        if (payload.new) {
+          if (Array.isArray(payload.new.history)) {
+            setJ('iron_workout_history', payload.new.history);
+          }
+          if (Array.isArray(payload.new.custom_exercises)) {
+            setJ('iron_custom_exercises', payload.new.custom_exercises);
+          }
           refreshAllUI();
           showToast('📥 Live update synced from another device!', 'info');
         }
@@ -1179,12 +1196,13 @@ function handleSaveCustomExercise(e) {
   const customList = getJ('iron_custom_exercises', []);
   customList.push(newEx);
   setJ('iron_custom_exercises', customList);
+  pushToCloud();
 
   closeAddExModal();
   rebuildWorkoutDatabase();
   renderAll();
   switchDayView(activeDay);
-  showToast('✨ Custom exercise added successfully!', 'success');
+  showToast('✨ Custom exercise added & synced!', 'success');
 }
 
 // ----- Form State Capture & Restoration (Preserves inputs during reorder) -----
@@ -1500,10 +1518,11 @@ function deleteCustomExercise(category) {
   let customList = getJ('iron_custom_exercises', []);
   customList = customList.filter(c => c.category !== category);
   setJ('iron_custom_exercises', customList);
+  pushToCloud();
   rebuildWorkoutDatabase();
   renderAll();
   switchDayView(activeDay);
-  showToast('Custom exercise removed.', 'info');
+  showToast('Custom exercise removed & synced.', 'info');
 }
 
 function renderDay(dayNum) {
