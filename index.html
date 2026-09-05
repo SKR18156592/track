@@ -816,7 +816,7 @@ async function pullFromCloud(showIndicator = false) {
   try {
     const syncBtn = document.getElementById('manualSyncBtn');
     if (syncBtn && showIndicator) syncBtn.textContent = '⏳ Syncing...';
-    const { data, error } = await supabaseClient.from('user_sync').select('history, custom_exercises, hidden_exercises, custom_variations').eq('user_id', currentUser.id).maybeSingle();
+    const { data, error } = await supabaseClient.from('user_sync').select('history, custom_exercises, hidden_exercises, custom_variations, var_order, exercise_orders').eq('user_id', currentUser.id).maybeSingle();
     if (error) return;
     if (data) {
       let updated = false;
@@ -824,6 +824,11 @@ async function pullFromCloud(showIndicator = false) {
       if (data.custom_exercises && Array.isArray(data.custom_exercises)) { setJ('iron_custom_exercises', data.custom_exercises); updated = true; }
       if (data.hidden_exercises && Array.isArray(data.hidden_exercises)) { setJ('iron_hidden_exercises', data.hidden_exercises); updated = true; }
       if (data.custom_variations && typeof data.custom_variations === 'object') { setJ('iron_custom_variations', data.custom_variations); updated = true; }
+      if (data.var_order && typeof data.var_order === 'object') { setJ('iron_var_order', data.var_order); updated = true; }
+      if (data.exercise_orders && typeof data.exercise_orders === 'object') {
+        for (const k in data.exercise_orders) setJ(k, data.exercise_orders[k]);
+        updated = true;
+      }
       if (updated) refreshAllUI();
     } else {
       await pushToCloud();
@@ -843,8 +848,19 @@ async function pushToCloud() {
     const custom_exercises = getJ('iron_custom_exercises', []);
     const hidden_exercises = getJ('iron_hidden_exercises', []);
     const custom_variations = getJ('iron_custom_variations', {});
+    const var_order = getJ('iron_var_order', {});
+    
+    // Collect all local exercise order keys
+    const exercise_orders = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('iron_order_')) {
+        exercise_orders[k] = getJ(k);
+      }
+    }
+
     await supabaseClient.from('user_sync').upsert({
-      user_id: currentUser.id, history, custom_exercises, hidden_exercises, custom_variations, updated_at: new Date().toISOString()
+      user_id: currentUser.id, history, custom_exercises, hidden_exercises, custom_variations, var_order, exercise_orders, updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' });
   } catch (err) {}
 }
@@ -858,7 +874,11 @@ function subscribeToRealtimeSync() {
         if (Array.isArray(payload.new.history)) setJ('iron_workout_history', payload.new.history);
         if (Array.isArray(payload.new.custom_exercises)) setJ('iron_custom_exercises', payload.new.custom_exercises);
         if (Array.isArray(payload.new.hidden_exercises)) setJ('iron_hidden_exercises', payload.new.hidden_exercises);
-        if (payload.new.custom_variations && typeof payload.new.custom_variations === 'object') setJ('iron_custom_variations', payload.new.custom_variations);
+        if (payload.new.custom_variations) setJ('iron_custom_variations', payload.new.custom_variations);
+        if (payload.new.var_order) setJ('iron_var_order', payload.new.var_order);
+        if (payload.new.exercise_orders) {
+          for (const k in payload.new.exercise_orders) setJ(k, payload.new.exercise_orders[k]);
+        }
         refreshAllUI();
         showToast('📥 Live update synced!', 'info');
       }
@@ -1122,9 +1142,12 @@ function rebuildWorkoutDatabase() {
             }
           });
         }
+        
+        // Filter out removed variations
         if (hiddenVars[ex.category] && Array.isArray(hiddenVars[ex.category])) {
           ex.variations = ex.variations.filter(v => !hiddenVars[ex.category].includes(v.value));
         }
+
         if (varOrderMap[ex.category] && Array.isArray(varOrderMap[ex.category])) {
           const order = varOrderMap[ex.category];
           ex.variations.sort((a, b) => {
@@ -1562,6 +1585,7 @@ function reorderExercise(category, direction) {
   section.exercises[newExIdx] = temp;
 
   setJ(`iron_order_${targetDay}_${targetSecIdx}`, section.exercises.map(e => e.category));
+  pushToCloud();
   const formData = captureCurrentFormValues();
   rebuildWorkoutDatabase();
   renderAll();
