@@ -165,7 +165,7 @@
     .day-view { display: none; flex-direction: column; gap: 20px; }
     .day-view.active { display: flex; animation: dayIn .4s cubic-bezier(0.16, 1, 0.3, 1); }
     @keyframes dayIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-    .category-section { display: flex; flex-direction: column; gap: 16px; margin-bottom: 12px; }
+    .category-section { display: flex; flex-direction: column; gap: 16px; }
     .category-tag { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; padding: 9px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.1); width: fit-content; box-shadow: 0 4px 16px rgba(0,0,0,0.3); background: var(--accent-dim); color: var(--accent); }
 
     .exercise-card { padding: 22px; border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 16px; position: relative; }
@@ -550,7 +550,7 @@
     <form id="addExForm" onsubmit="handleSaveCustomExercise(event)" style="display: flex; flex-direction: column; gap: 14px;">
       <div class="meta-field">
         <label>Target Day</label>
-        <select id="exDay" class="machine-dropdown" style="width:100%;" onchange="updateSectionDropdown()">
+        <select id="exDay" class="machine-dropdown" style="width:100%;" onchange="populateSectionDropdown(this.value)">
           <option value="1">Day 1: Chest • Shoulders • Biceps</option>
           <option value="2">Day 2: Legs • Calves • Core</option>
           <option value="3">Day 3: Back • Rear Delts • Triceps • Traps</option>
@@ -558,9 +558,13 @@
       </div>
       <div class="meta-field">
         <label>Target Section</label>
-        <select id="exSectionIdx" class="machine-dropdown" style="width:100%;">
+        <select id="exSectionSelect" class="machine-dropdown" style="width:100%;" onchange="handleSectionSelectChange(this.value)">
           <!-- Populated dynamically -->
         </select>
+      </div>
+      <div class="meta-field" id="customSectionNameField" style="display:none;">
+        <label>New Custom Section Name</label>
+        <input type="text" id="exCustomSection" class="input-field" placeholder="e.g., Forearm Specialization" style="text-align: left; padding: 12px;" />
       </div>
       <div class="meta-field">
         <label>Exercise Title</label>
@@ -1032,10 +1036,16 @@ function rebuildWorkoutDatabase() {
   const hiddenExs = getJ('iron_hidden_exercises', []);
   const customExs = getJ('iron_custom_exercises', []);
 
+  // Inject custom exercises into their designated section
   customExs.forEach(c => {
     const dayObj = WORKOUT[c.day];
-    if (dayObj && dayObj.sections[c.sectionIdx]) {
-      dayObj.sections[c.sectionIdx].exercises.push({
+    if (dayObj) {
+      let targetSec = dayObj.sections.find(s => s.title === c.sectionTitle);
+      if (!targetSec) {
+        targetSec = { title: c.sectionTitle, tag: 'cus_sec_' + Math.random().toString(36).substring(2, 7), color: 'blue', exercises: [] };
+        dayObj.sections.push(targetSec);
+      }
+      targetSec.exercises.push({
         category: c.category, prefix: c.prefix, title: c.title, target: c.target, scheme: c.scheme, rest: c.rest, exerciseType: c.exerciseType,
         variations: [{ value: 'custom_var', label: c.varLabel, setup: 'Custom setup', cue: 'Maintain form', defaultSets: [[20, 10, 2, 'Working', 7], [20, 10, 1, 'Working', 7]] }]
       });
@@ -1128,26 +1138,39 @@ function updateRestMultiplierLabel() {
 }
 
 function openAddExModal() {
-  updateSectionDropdown();
+  populateSectionDropdown(document.getElementById('exDay').value);
   document.getElementById('addExModalOverlay').classList.add('active');
 }
 function closeAddExModal() { document.getElementById('addExModalOverlay').classList.remove('active'); document.getElementById('addExForm').reset(); }
 
-function updateSectionDropdown() {
-  const dayNum = parseInt(document.getElementById('exDay').value, 10);
-  const secSelect = document.getElementById('exSectionIdx');
-  if (!secSelect) return;
-  secSelect.innerHTML = '';
+function populateSectionDropdown(dayNum) {
+  const select = document.getElementById('exSectionSelect');
+  if (!select) return;
   const sections = WORKOUT_BASE[dayNum].sections;
-  sections.forEach((sec, idx) => {
-    secSelect.innerHTML += `<option value="${idx}">${sec.title}</option>`;
-  });
+  let html = sections.map(s => `<option value="${s.title}">${s.title}</option>`).join('');
+  html += `<option value="__NEW__">➕ Create New Custom Section...</option>`;
+  select.innerHTML = html;
+  handleSectionSelectChange(select.value);
+}
+
+function handleSectionSelectChange(val) {
+  const customField = document.getElementById('customSectionNameField');
+  if (val === '__NEW__') {
+    customField.style.display = 'flex';
+    document.getElementById('exCustomSection').required = true;
+  } else {
+    customField.style.display = 'none';
+    document.getElementById('exCustomSection').required = false;
+  }
 }
 
 function handleSaveCustomExercise(e) {
   e.preventDefault();
   const day = parseInt(document.getElementById('exDay').value, 10);
-  const sectionIdx = parseInt(document.getElementById('exSectionIdx').value, 10);
+  const secSelectVal = document.getElementById('exSectionSelect').value;
+  const customSecName = document.getElementById('exCustomSection').value.trim();
+  const sectionTitle = secSelectVal === '__NEW__' ? (customSecName || 'Custom Section') : secSelectVal;
+
   const title = document.getElementById('exTitle').value.trim();
   const target = document.getElementById('exTarget').value.trim();
   const exerciseType = document.getElementById('exType').value;
@@ -1158,7 +1181,7 @@ function handleSaveCustomExercise(e) {
   const prefix = 'cp_' + Math.random().toString(36).substring(2, 7);
   const rest = exerciseType === 'compound' ? 150 : 75;
 
-  const newEx = { category, prefix, title, target, exerciseType, varLabel, scheme, rest, day, sectionIdx };
+  const newEx = { category, prefix, title, target, exerciseType, varLabel, scheme, rest, day, sectionTitle };
   const customList = getJ('iron_custom_exercises', []);
   customList.push(newEx);
   setJ('iron_custom_exercises', customList);
@@ -1167,7 +1190,7 @@ function handleSaveCustomExercise(e) {
   closeAddExModal();
   rebuildWorkoutDatabase();
   renderAll();
-  switchDayView(day);
+  switchDayView(activeDay);
   showToast('✨ Custom exercise added!', 'success');
 }
 
@@ -1736,6 +1759,9 @@ function finishCurrentDayWorkout() {
   showCelebration();
 }
 
+// ==========================================
+// 4. SHAREABLE WORKOUT SUMMARY CARD GENERATOR
+// ==========================================
 function generateShareCard(record) {
   const canvas = document.createElement('canvas');
   canvas.width = 800;
