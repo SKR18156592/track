@@ -179,9 +179,9 @@
     .ex-scheme-badge { background: var(--card-solid); color: var(--accent); font-size: 11.5px; font-weight: 700; padding: 6px 12px; border-radius: 9px; border: 1px solid var(--accent-glow); white-space: nowrap; }
     .ex-type-badge { background: var(--card-solid); color: var(--lime); font-size: 10.5px; font-weight: 700; padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(57,255,20,0.25); text-transform: uppercase; }
 
-    .machine-selector-wrapper { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .machine-selector-wrapper { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .machine-label { font-size: 13px; font-weight: 700; color: var(--muted); }
-    .machine-dropdown { flex: 1; min-width: 190px; background: rgba(15, 23, 42, 0.85); color: #fff; border: 1px solid rgba(255,255,255,0.12); padding: 11px 14px; border-radius: var(--radius-sm); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: border-color .2s; }
+    .machine-dropdown { flex: 1; min-width: 170px; background: rgba(15, 23, 42, 0.85); color: #fff; border: 1px solid rgba(255,255,255,0.12); padding: 11px 14px; border-radius: var(--radius-sm); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: border-color .2s; }
     .machine-dropdown:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--accent-glow); }
     .machine-dropdown option { background: #0f172a; color: #fff; }
 
@@ -816,7 +816,7 @@ async function pullFromCloud(showIndicator = false) {
   try {
     const syncBtn = document.getElementById('manualSyncBtn');
     if (syncBtn && showIndicator) syncBtn.textContent = '⏳ Syncing...';
-    const { data, error } = await supabaseClient.from('user_sync').select('history, custom_exercises, hidden_exercises, custom_variations').eq('user_id', currentUser.id).maybeSingle();
+    const { data, error } = await supabaseClient.from('user_sync').select('history, custom_exercises, hidden_exercises, custom_variations, var_order').eq('user_id', currentUser.id).maybeSingle();
     if (error) return;
     if (data) {
       let updated = false;
@@ -824,6 +824,7 @@ async function pullFromCloud(showIndicator = false) {
       if (data.custom_exercises && Array.isArray(data.custom_exercises)) { setJ('iron_custom_exercises', data.custom_exercises); updated = true; }
       if (data.hidden_exercises && Array.isArray(data.hidden_exercises)) { setJ('iron_hidden_exercises', data.hidden_exercises); updated = true; }
       if (data.custom_variations && typeof data.custom_variations === 'object') { setJ('iron_custom_variations', data.custom_variations); updated = true; }
+      if (data.var_order && typeof data.var_order === 'object') { setJ('iron_var_order', data.var_order); updated = true; }
       if (updated) refreshAllUI();
     } else {
       await pushToCloud();
@@ -843,8 +844,9 @@ async function pushToCloud() {
     const custom_exercises = getJ('iron_custom_exercises', []);
     const hidden_exercises = getJ('iron_hidden_exercises', []);
     const custom_variations = getJ('iron_custom_variations', {});
+    const var_order = getJ('iron_var_order', {});
     await supabaseClient.from('user_sync').upsert({
-      user_id: currentUser.id, history, custom_exercises, hidden_exercises, custom_variations, updated_at: new Date().toISOString()
+      user_id: currentUser.id, history, custom_exercises, hidden_exercises, custom_variations, var_order, updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' });
   } catch (err) {}
 }
@@ -859,6 +861,7 @@ function subscribeToRealtimeSync() {
         if (Array.isArray(payload.new.custom_exercises)) setJ('iron_custom_exercises', payload.new.custom_exercises);
         if (Array.isArray(payload.new.hidden_exercises)) setJ('iron_hidden_exercises', payload.new.hidden_exercises);
         if (Array.isArray(payload.new.custom_variations)) setJ('iron_custom_variations', payload.new.custom_variations);
+        if (payload.new.var_order) setJ('iron_var_order', payload.new.var_order);
         refreshAllUI();
         showToast('📥 Live update synced!', 'info');
       }
@@ -1092,7 +1095,8 @@ function rebuildWorkoutDatabase() {
   WORKOUT = JSON.parse(JSON.stringify(WORKOUT_BASE));
   const hiddenExs = getJ('iron_hidden_exercises', []);
   const customExs = getJ('iron_custom_exercises', []);
-  const customVars = getJ('iron_custom_variations', {}); // { category: [ {value, label, setup, cue, defaultSets} ] }
+  const customVars = getJ('iron_custom_variations', {});
+  const varOrderMap = getJ('iron_var_order', {}); // { category: [value1, value2, ...] }
 
   // Inject custom exercises
   customExs.forEach(c => {
@@ -1110,7 +1114,7 @@ function rebuildWorkoutDatabase() {
     }
   });
 
-  // Inject user-added variations into base or custom exercises
+  // Inject custom variations & sort by user-defined order
   for (const dNum of [1, 2, 3]) {
     WORKOUT[dNum].sections.forEach((sec, sIdx) => {
       sec.exercises = sec.exercises.filter(ex => !hiddenExs.includes(ex.category));
@@ -1120,6 +1124,19 @@ function rebuildWorkoutDatabase() {
             if (!ex.variations.some(existing => existing.value === v.value)) {
               ex.variations.push(v);
             }
+          });
+        }
+
+        // Apply saved variation order if present
+        if (varOrderMap[ex.category] && Array.isArray(varOrderMap[ex.category])) {
+          const orderList = varOrderMap[ex.category];
+          ex.variations.sort((a, b) => {
+            const idxA = orderList.indexOf(a.value);
+            const idxB = orderList.indexOf(b.value);
+            if (idxA === -1 && idxB === -1) return 0;
+            if (idxA === -1) return 1;
+            if (idxB === -1) return -1;
+            return idxA - idxB;
           });
         }
       });
@@ -1252,14 +1269,14 @@ function handleSaveCustomExercise(e) {
   const title = document.getElementById('exTitle').value.trim();
   const target = document.getElementById('exTarget').value.trim();
   const exerciseType = document.getElementById('exType').value;
-  const varLabel = document.getElementById('exVarLabel').value.trim();
+  const varLabel = document.getElementById('newVarLabelInput') ? document.getElementById('newVarLabelInput').value.trim() : document.getElementById('exVarLabel').value.trim();
   const scheme = document.getElementById('exScheme').value.trim();
 
   const category = 'cus_' + Date.now();
   const prefix = 'cp_' + Math.random().toString(36).substring(2, 7);
   const rest = exerciseType === 'compound' ? 150 : 75;
 
-  const newEx = { category, prefix, title, target, exerciseType, varLabel, scheme, rest, day, sectionTitle };
+  const newEx = { category, prefix, title, target, exerciseType, varLabel: document.getElementById('exVarLabel').value.trim(), scheme, rest, day, sectionTitle };
   const customList = getJ('iron_custom_exercises', []);
   customList.push(newEx);
   setJ('iron_custom_exercises', customList);
@@ -1273,7 +1290,7 @@ function handleSaveCustomExercise(e) {
 }
 
 // ==========================================
-// ADD EQUIPMENT VARIATION MODAL HANDLERS
+// EQUIPMENT VARIATION REORDERING & CREATION
 // ==========================================
 function openAddVarModal(category) {
   activeAddVarCategory = category;
@@ -1316,12 +1333,42 @@ function handleSaveNewVariation(e) {
   renderAll();
   switchDayView(activeDay);
 
-  // Auto-select the newly created variation
   setChoice(activeAddVarCategory, value);
   const ex = FLAT_EXERCISES.find(e => e.category === activeAddVarCategory);
   if (ex) applyVariation(activeAddVarCategory, ex.prefix, value, true);
 
   showToast('✨ New equipment variation added!', 'success');
+}
+
+function reorderEquipmentVariation(category, direction) {
+  const select = document.getElementById(category + 'Select');
+  if (!select) return;
+  const curVal = select.value;
+  const ex = FLAT_EXERCISES.find(e => e.category === category);
+  if (!ex) return;
+
+  const list = [...ex.variations];
+  const idx = list.findIndex(v => v.value === curVal);
+  if (idx === -1) return;
+  const targetIdx = idx + direction;
+  if (targetIdx < 0 || targetIdx >= list.length) return;
+
+  const temp = list[idx];
+  list[idx] = list[targetIdx];
+  list[targetIdx] = temp;
+
+  const varOrderMap = getJ('iron_var_order', {});
+  varOrderMap[category] = list.map(v => v.value);
+  setJ('iron_var_order', varOrderMap);
+  pushToCloud();
+
+  rebuildWorkoutDatabase();
+  renderAll();
+  switchDayView(activeDay);
+  setChoice(category, curVal);
+  const reloadedEx = FLAT_EXERCISES.find(e => e.category === category);
+  if (reloadedEx) applyVariation(category, reloadedEx.prefix, curVal, true);
+  showToast('Equipment reordered!', 'info');
 }
 
 // ==========================================
@@ -1620,12 +1667,14 @@ function renderExerciseCard(ex, idx) {
       </div>
     </div>
     <div class="machine-selector-wrapper">
-      <div class="machine-label">🏋️ Equipment Option:</div>
+      <div class="machine-label">🏋️ Equipment:</div>
       <select class="machine-dropdown" id="${ex.category}Select" onchange="onVariationChange('${ex.category}', '${ex.prefix}', this)">
         ${options}
       </select>
-      <button class="btn-xs" style="color:var(--accent); border-color:var(--accent-glow);" onclick="openAddVarModal('${ex.category}')">➕ Add Var</button>
-      <button class="btn-xs" style="color:var(--lime); border-color:rgba(57,255,20,0.35);" onclick="openPresetModal('${ex.category}')">⚙️ Edit Preset</button>
+      <button class="btn-xs" style="color:var(--accent); border-color:var(--accent-glow); padding:6px 10px;" onclick="reorderEquipmentVariation('${ex.category}', -1)" title="Move Equipment Up">⬆️</button>
+      <button class="btn-xs" style="color:var(--accent); border-color:var(--accent-glow); padding:6px 10px;" onclick="reorderEquipmentVariation('${ex.category}', 1)" title="Move Equipment Down">⬇️</button>
+      <button class="btn-xs" style="color:var(--accent); border-color:var(--accent-glow);" onclick="openAddVarModal('${ex.category}')">➕ Add</button>
+      <button class="btn-xs" style="color:var(--lime); border-color:rgba(57,255,20,0.35);" onclick="openPresetModal('${ex.category}')">⚙️ Preset</button>
     </div>
     <div class="ex-meta-info">
       <div class="info-row">
