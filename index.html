@@ -352,8 +352,8 @@
     <p style="font-size: 13.5px; color: var(--muted); margin-bottom: 16px;">Sync your workouts seamlessly across phone and computer.</p>
     
     <form id="authForm" onsubmit="handleAuthSubmit(event)" style="display: flex; flex-direction: column; gap: 12px;">
-      <input type="email" id="authEmail" class="input-field" placeholder="Email address" required style="padding: 13px; font-size: 14px; text-align: left;" />
-      <input type="password" id="authPassword" class="input-field" placeholder="Password (min 6 characters)" required minlength="6" style="padding: 13px; font-size: 14px; text-align: left;" />
+      <input type="email" id="authEmail" class="input-field" placeholder="Email address" autocomplete="off" required style="padding: 13px; font-size: 14px; text-align: left;" />
+      <input type="password" id="authPassword" class="input-field" placeholder="Password (min 6 characters)" autocomplete="current-password" required minlength="6" style="padding: 13px; font-size: 14px; text-align: left;" />
       
       <button type="submit" class="btn btn-primary" id="authSubmitBtn" style="justify-content: center; margin-top: 4px;">Sign In</button>
       
@@ -547,7 +547,7 @@
       <h2>➕ Add Custom Exercise</h2>
       <button class="btn-xs" onclick="closeAddExModal()">✕</button>
     </div>
-    <form id="addExForm" onsubmit="handleSaveCustomExercise(event)" style="display: flex; flex-direction: column; gap: 14px;">
+    <form id="addExForm" onsubmit="handleSaveCustomExercise(event)" autocomplete="off" style="display: flex; flex-direction: column; gap: 14px;">
       <div class="meta-field">
         <label>Target Day</label>
         <select id="exDay" class="machine-dropdown" style="width:100%;" onchange="populateSectionDropdown(this.value)">
@@ -564,15 +564,15 @@
       </div>
       <div class="meta-field" id="customSectionNameField" style="display:none;">
         <label>New Custom Section Name</label>
-        <input type="text" id="exCustomSection" class="input-field" placeholder="e.g., Forearm Specialization" style="text-align: left; padding: 12px;" />
+        <input type="text" id="exCustomSection" class="input-field" placeholder="e.g., Forearm Specialization" autocomplete="off" value="" style="text-align: left; padding: 12px;" />
       </div>
       <div class="meta-field">
         <label>Exercise Title</label>
-        <input type="text" id="exTitle" class="input-field" placeholder="e.g., Cable Crossover" required style="text-align: left; padding: 12px;" />
+        <input type="text" id="exTitle" class="input-field" placeholder="e.g., Cable Crossover" autocomplete="off" value="" required style="text-align: left; padding: 12px;" />
       </div>
       <div class="meta-field">
         <label>Target Muscle / Focus</label>
-        <input type="text" id="exTarget" class="input-field" placeholder="e.g., Lower Pecs" required style="text-align: left; padding: 12px;" />
+        <input type="text" id="exTarget" class="input-field" placeholder="e.g., Lower Pecs" autocomplete="off" value="" required style="text-align: left; padding: 12px;" />
       </div>
       <div class="meta-field">
         <label>Exercise Type</label>
@@ -583,11 +583,11 @@
       </div>
       <div class="meta-field">
         <label>Equipment / Variation Name</label>
-        <input type="text" id="exVarLabel" class="input-field" placeholder="e.g., Adjustable Pulleys" required style="text-align: left; padding: 12px;" />
+        <input type="text" id="exVarLabel" class="input-field" placeholder="e.g., Adjustable Pulleys" autocomplete="off" value="" required style="text-align: left; padding: 12px;" />
       </div>
       <div class="meta-field">
         <label>Default Sets Scheme</label>
-        <input type="text" id="exScheme" class="input-field" value="3 × 10–12 | Rest 75s" style="text-align: left; padding: 12px;" />
+        <input type="text" id="exScheme" class="input-field" value="3 × 10–12 | Rest 75s" autocomplete="off" style="text-align: left; padding: 12px;" />
       </div>
       <div class="modal-footer" style="margin-top: 8px;">
         <button type="button" class="btn btn-secondary" onclick="closeAddExModal()">Cancel</button>
@@ -1036,7 +1036,6 @@ function rebuildWorkoutDatabase() {
   const hiddenExs = getJ('iron_hidden_exercises', []);
   const customExs = getJ('iron_custom_exercises', []);
 
-  // Inject custom exercises into their designated section
   customExs.forEach(c => {
     const dayObj = WORKOUT[c.day];
     if (dayObj) {
@@ -1139,6 +1138,10 @@ function updateRestMultiplierLabel() {
 
 function openAddExModal() {
   populateSectionDropdown(document.getElementById('exDay').value);
+  document.getElementById('addExForm').reset();
+  document.getElementById('exTitle').value = '';
+  document.getElementById('exTarget').value = '';
+  document.getElementById('exVarLabel').value = '';
   document.getElementById('addExModalOverlay').classList.add('active');
 }
 function closeAddExModal() { document.getElementById('addExModalOverlay').classList.remove('active'); document.getElementById('addExForm').reset(); }
@@ -1155,12 +1158,15 @@ function populateSectionDropdown(dayNum) {
 
 function handleSectionSelectChange(val) {
   const customField = document.getElementById('customSectionNameField');
+  const customInput = document.getElementById('exCustomSection');
   if (val === '__NEW__') {
     customField.style.display = 'flex';
-    document.getElementById('exCustomSection').required = true;
+    customInput.value = '';
+    customInput.required = true;
   } else {
     customField.style.display = 'none';
-    document.getElementById('exCustomSection').required = false;
+    customInput.value = '';
+    customInput.required = false;
   }
 }
 
