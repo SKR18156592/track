@@ -1204,13 +1204,15 @@ function handleSaveCustomExercise(e) {
   const customList = getJ('iron_custom_exercises', []);
   customList.push(newEx);
   setJ('iron_custom_exercises', customList);
+  
+  // Automatically push to Supabase cloud immediately
   pushToCloud();
 
   closeAddExModal();
   rebuildWorkoutDatabase();
   renderAll();
   switchDayView(activeDay);
-  showToast('✨ Custom exercise added & synced!', 'success');
+  showToast('✨ Custom exercise added & synced automatically!', 'success');
 }
 
 // ----- Form State Capture & Restoration (Preserves inputs during reorder) -----
