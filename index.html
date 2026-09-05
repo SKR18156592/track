@@ -1199,7 +1199,8 @@ function rebuildWorkoutDatabase() {
         }
       });
 
-      const savedOrder = getJ(`iron_order_${dNum}_${sIdx}`);
+      const orderKey = `iron_order_${dNum}_${sIdx}`;
+      const savedOrder = getJ(orderKey);
       if (savedOrder && Array.isArray(savedOrder)) {
         sec.exercises.sort((a, b) => {
           const idxA = savedOrder.indexOf(a.category);
@@ -2452,4 +2453,4 @@ window.ironStart = Date.now();
 init();
 </script>
 </body>
-</html> 
+</html>
