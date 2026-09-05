@@ -816,73 +816,106 @@ async function pullFromCloud(showIndicator = false) {
   try {
     const syncBtn = document.getElementById('manualSyncBtn');
     if (syncBtn && showIndicator) syncBtn.textContent = '⏳ Syncing...';
-    const { data, error } = await supabaseClient.from('user_sync').select('history, custom_exercises, hidden_exercises, custom_variations, var_order, exercise_orders').eq('user_id', currentUser.id).maybeSingle();
-    if (error) return;
+
+    const { data, error } = await supabaseClient
+      .from('user_sync')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Cloud pull error:', error);
+      if (syncBtn && showIndicator) syncBtn.textContent = '❌ Error';
+      if (showIndicator) showToast('Sync failed: ' + error.message, 'error');
+      return;
+    }
+
     if (data) {
       let updated = false;
-      if (data.history && Array.isArray(data.history)) { setJ('iron_workout_history', data.history); updated = true; }
-      if (data.custom_exercises && Array.isArray(data.custom_exercises)) { setJ('iron_custom_exercises', data.custom_exercises); updated = true; }
-      if (data.hidden_exercises && Array.isArray(data.hidden_exercises)) { setJ('iron_hidden_exercises', data.hidden_exercises); updated = true; }
-      if (data.custom_variations && typeof data.custom_variations === 'object') { setJ('iron_custom_variations', data.custom_variations); updated = true; }
-      if (data.var_order && typeof data.var_order === 'object') { setJ('iron_var_order', data.var_order); updated = true; }
-      if (data.exercise_orders && typeof data.exercise_orders === 'object') {
-        for (const k in data.exercise_orders) setJ(k, data.exercise_orders[k]);
+      if (Array.isArray(data.history)) {
+        setJ('iron_workout_history', data.history);
+        updated = true;
+      }
+      if (Array.isArray(data.custom_exercises)) {
+        setJ('iron_custom_exercises', data.custom_exercises);
+        updated = true;
+      }
+      if (Array.isArray(data.hidden_exercises)) {
+        setJ('iron_hidden_exercises', data.hidden_exercises);
+        updated = true;
+      }
+      if (data.custom_variations && typeof data.custom_variations === 'object') {
+        setJ('iron_custom_variations', data.custom_variations);
         updated = true;
       }
       if (updated) refreshAllUI();
     } else {
       await pushToCloud();
     }
+
     if (syncBtn && showIndicator) {
       syncBtn.textContent = '✅ Synced';
       setTimeout(() => { syncBtn.textContent = '☁️ Sync'; }, 2000);
     }
-    if (showIndicator) showToast('Data synchronized!', 'success');
-  } catch (err) {}
+    if (showIndicator) showToast('Data synchronized successfully!', 'success');
+  } catch (err) {
+    console.error('Unexpected sync error:', err);
+    if (showIndicator) showToast('Sync error occurred.', 'error');
+  }
 }
 
 async function pushToCloud() {
   if (!currentUser || !supabaseClient) return;
   try {
-    const history = getJ('iron_workout_history', []);
-    const custom_exercises = getJ('iron_custom_exercises', []);
-    const hidden_exercises = getJ('iron_hidden_exercises', []);
-    const custom_variations = getJ('iron_custom_variations', {});
-    const var_order = getJ('iron_var_order', {});
-    
-    // Collect all local exercise order keys
-    const exercise_orders = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith('iron_order_')) {
-        exercise_orders[k] = getJ(k);
-      }
-    }
+    const payload = {
+      user_id: currentUser.id,
+      history: getJ('iron_workout_history', []),
+      custom_exercises: getJ('iron_custom_exercises', []),
+      hidden_exercises: getJ('iron_hidden_exercises', []),
+      custom_variations: getJ('iron_custom_variations', {}),
+      updated_at: new Date().toISOString()
+    };
 
-    await supabaseClient.from('user_sync').upsert({
-      user_id: currentUser.id, history, custom_exercises, hidden_exercises, custom_variations, var_order, exercise_orders, updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id' });
-  } catch (err) {}
+    const { error } = await supabaseClient
+      .from('user_sync')
+      .upsert(payload, { onConflict: 'user_id' });
+
+    if (error) {
+      console.error('Cloud push error:', error);
+    }
+  } catch (err) {
+    console.error('Unexpected push error:', err);
+  }
 }
 
 function subscribeToRealtimeSync() {
   if (!currentUser || !supabaseClient) return;
   if (syncChannel) supabaseClient.removeChannel(syncChannel);
-  syncChannel = supabaseClient.channel('user_sync_' + currentUser.id)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'user_sync', filter: `user_id=eq.${currentUser.id}` }, (payload) => {
-      if (payload.new) {
-        if (Array.isArray(payload.new.history)) setJ('iron_workout_history', payload.new.history);
-        if (Array.isArray(payload.new.custom_exercises)) setJ('iron_custom_exercises', payload.new.custom_exercises);
-        if (Array.isArray(payload.new.hidden_exercises)) setJ('iron_hidden_exercises', payload.new.hidden_exercises);
-        if (payload.new.custom_variations) setJ('iron_custom_variations', payload.new.custom_variations);
-        if (payload.new.var_order) setJ('iron_var_order', payload.new.var_order);
-        if (payload.new.exercise_orders) {
-          for (const k in payload.new.exercise_orders) setJ(k, payload.new.exercise_orders[k]);
+
+  syncChannel = supabaseClient
+    .channel('user_sync_' + currentUser.id)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'user_sync',
+        filter: `user_id=eq.${currentUser.id}`
+      },
+      (payload) => {
+        if (payload.new) {
+          if (Array.isArray(payload.new.history)) setJ('iron_workout_history', payload.new.history);
+          if (Array.isArray(payload.new.custom_exercises)) setJ('iron_custom_exercises', payload.new.custom_exercises);
+          if (Array.isArray(payload.new.hidden_exercises)) setJ('iron_hidden_exercises', payload.new.hidden_exercises);
+          if (payload.new.custom_variations && typeof payload.new.custom_variations === 'object') {
+            setJ('iron_custom_variations', payload.new.custom_variations);
+          }
+          refreshAllUI();
+          showToast('📥 Live update synced from another device!', 'info');
         }
-        refreshAllUI();
-        showToast('📥 Live update synced!', 'info');
       }
-    }).subscribe();
+    )
+    .subscribe();
 }
 
 // ==========================================
@@ -1142,12 +1175,9 @@ function rebuildWorkoutDatabase() {
             }
           });
         }
-        
-        // Filter out removed variations
         if (hiddenVars[ex.category] && Array.isArray(hiddenVars[ex.category])) {
           ex.variations = ex.variations.filter(v => !hiddenVars[ex.category].includes(v.value));
         }
-
         if (varOrderMap[ex.category] && Array.isArray(varOrderMap[ex.category])) {
           const order = varOrderMap[ex.category];
           ex.variations.sort((a, b) => {
@@ -1309,9 +1339,6 @@ function handleSaveCustomExercise(e) {
   showToast('✨ Custom exercise added!', 'success');
 }
 
-// ==========================================
-// ADD & MANAGE EQUIPMENT VARIATIONS
-// ==========================================
 function openAddVarModal(category) {
   activeAddVarCategory = category;
   const ex = FLAT_EXERCISES.find(e => e.category === category);
@@ -1417,9 +1444,6 @@ function removeEquipment(category) {
   showToast('🗑️ Equipment variation removed.', 'info');
 }
 
-// ==========================================
-// PRESET EDITOR MODAL HANDLERS
-// ==========================================
 function openPresetModal(category) {
   const ex = FLAT_EXERCISES.find(e => e.category === category);
   if (!ex) return;
@@ -1585,7 +1609,6 @@ function reorderExercise(category, direction) {
   section.exercises[newExIdx] = temp;
 
   setJ(`iron_order_${targetDay}_${targetSecIdx}`, section.exercises.map(e => e.category));
-  pushToCloud();
   const formData = captureCurrentFormValues();
   rebuildWorkoutDatabase();
   renderAll();
