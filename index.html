@@ -596,6 +596,34 @@
   </div>
 </div>
 
+<!-- Add Equipment Variation Modal -->
+<div class="modal-overlay" id="addVarModalOverlay" onclick="if(event.target===this) closeAddVarModal()">
+  <div class="modal-content" style="max-width: 440px;">
+    <div class="modal-header">
+      <h2 id="addVarModalTitle">➕ Add Equipment Variation</h2>
+      <button class="btn-xs" onclick="closeAddVarModal()">✕</button>
+    </div>
+    <form id="addVarForm" onsubmit="handleSaveNewVariation(event)" autocomplete="off" style="display: flex; flex-direction: column; gap: 14px;">
+      <div class="meta-field">
+        <label>Variation / Equipment Name</label>
+        <input type="text" id="newVarLabelInput" class="input-field" placeholder="e.g., Incline Single-Arm Cable Fly" autocomplete="off" required style="text-align: left; padding: 12px;" />
+      </div>
+      <div class="meta-field">
+        <label>Setup / Mechanics Note</label>
+        <input type="text" id="newVarSetupInput" class="input-field" placeholder="e.g., Cable at chest height, lean forward" autocomplete="off" style="text-align: left; padding: 12px;" />
+      </div>
+      <div class="meta-field">
+        <label>Execution Cue</label>
+        <input type="text" id="newVarCueInput" class="input-field" placeholder="e.g., Squeeze elbows together" autocomplete="off" style="text-align: left; padding: 12px;" />
+      </div>
+      <div class="modal-footer" style="margin-top: 8px;">
+        <button type="button" class="btn btn-secondary" onclick="closeAddVarModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Variation</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Edit Preset Modal -->
 <div class="modal-overlay" id="presetModalOverlay" onclick="if(event.target===this) closePresetModal()">
   <div class="modal-content" style="max-width: 540px;">
@@ -788,13 +816,14 @@ async function pullFromCloud(showIndicator = false) {
   try {
     const syncBtn = document.getElementById('manualSyncBtn');
     if (syncBtn && showIndicator) syncBtn.textContent = '⏳ Syncing...';
-    const { data, error } = await supabaseClient.from('user_sync').select('history, custom_exercises, hidden_exercises').eq('user_id', currentUser.id).maybeSingle();
+    const { data, error } = await supabaseClient.from('user_sync').select('history, custom_exercises, hidden_exercises, custom_variations').eq('user_id', currentUser.id).maybeSingle();
     if (error) return;
     if (data) {
       let updated = false;
       if (data.history && Array.isArray(data.history)) { setJ('iron_workout_history', data.history); updated = true; }
       if (data.custom_exercises && Array.isArray(data.custom_exercises)) { setJ('iron_custom_exercises', data.custom_exercises); updated = true; }
       if (data.hidden_exercises && Array.isArray(data.hidden_exercises)) { setJ('iron_hidden_exercises', data.hidden_exercises); updated = true; }
+      if (data.custom_variations && typeof data.custom_variations === 'object') { setJ('iron_custom_variations', data.custom_variations); updated = true; }
       if (updated) refreshAllUI();
     } else {
       await pushToCloud();
@@ -813,8 +842,9 @@ async function pushToCloud() {
     const history = getJ('iron_workout_history', []);
     const custom_exercises = getJ('iron_custom_exercises', []);
     const hidden_exercises = getJ('iron_hidden_exercises', []);
+    const custom_variations = getJ('iron_custom_variations', {});
     await supabaseClient.from('user_sync').upsert({
-      user_id: currentUser.id, history, custom_exercises, hidden_exercises, updated_at: new Date().toISOString()
+      user_id: currentUser.id, history, custom_exercises, hidden_exercises, custom_variations, updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' });
   } catch (err) {}
 }
@@ -828,6 +858,7 @@ function subscribeToRealtimeSync() {
         if (Array.isArray(payload.new.history)) setJ('iron_workout_history', payload.new.history);
         if (Array.isArray(payload.new.custom_exercises)) setJ('iron_custom_exercises', payload.new.custom_exercises);
         if (Array.isArray(payload.new.hidden_exercises)) setJ('iron_hidden_exercises', payload.new.hidden_exercises);
+        if (Array.isArray(payload.new.custom_variations)) setJ('iron_custom_variations', payload.new.custom_variations);
         refreshAllUI();
         showToast('📥 Live update synced!', 'info');
       }
@@ -1061,7 +1092,9 @@ function rebuildWorkoutDatabase() {
   WORKOUT = JSON.parse(JSON.stringify(WORKOUT_BASE));
   const hiddenExs = getJ('iron_hidden_exercises', []);
   const customExs = getJ('iron_custom_exercises', []);
+  const customVars = getJ('iron_custom_variations', {}); // { category: [ {value, label, setup, cue, defaultSets} ] }
 
+  // Inject custom exercises
   customExs.forEach(c => {
     const dayObj = WORKOUT[c.day];
     if (dayObj) {
@@ -1077,9 +1110,20 @@ function rebuildWorkoutDatabase() {
     }
   });
 
+  // Inject user-added variations into base or custom exercises
   for (const dNum of [1, 2, 3]) {
     WORKOUT[dNum].sections.forEach((sec, sIdx) => {
       sec.exercises = sec.exercises.filter(ex => !hiddenExs.includes(ex.category));
+      sec.exercises.forEach(ex => {
+        if (customVars[ex.category] && Array.isArray(customVars[ex.category])) {
+          customVars[ex.category].forEach(v => {
+            if (!ex.variations.some(existing => existing.value === v.value)) {
+              ex.variations.push(v);
+            }
+          });
+        }
+      });
+
       const savedOrder = getJ(`iron_order_${dNum}_${sIdx}`);
       if (savedOrder && Array.isArray(savedOrder)) {
         sec.exercises.sort((a, b) => {
@@ -1135,7 +1179,8 @@ let restInterval = null;
 let audioCtx = null;
 let confettiFired = false;
 let lastFinishedRecord = null;
-let activePresetModalData = null; // { category, variationValue }
+let activePresetModalData = null;
+let activeAddVarCategory = null;
 
 const getL = (k, def) => { try { const v = localStorage.getItem(k); return v === null ? def : v; } catch(e){ return def; } };
 const setL = (k, v) => { try { localStorage.setItem(k, v); } catch(e){} };
@@ -1228,6 +1273,58 @@ function handleSaveCustomExercise(e) {
 }
 
 // ==========================================
+// ADD EQUIPMENT VARIATION MODAL HANDLERS
+// ==========================================
+function openAddVarModal(category) {
+  activeAddVarCategory = category;
+  const ex = FLAT_EXERCISES.find(e => e.category === category);
+  if (!ex) return;
+  document.getElementById('addVarModalTitle').textContent = `➕ Add Variation: ${ex.title}`;
+  document.getElementById('addVarForm').reset();
+  document.getElementById('addVarModalOverlay').classList.add('active');
+}
+
+function closeAddVarModal() {
+  document.getElementById('addVarModalOverlay').classList.remove('active');
+  activeAddVarCategory = null;
+}
+
+function handleSaveNewVariation(e) {
+  e.preventDefault();
+  if (!activeAddVarCategory) return;
+  const label = document.getElementById('newVarLabelInput').value.trim();
+  const setup = document.getElementById('newVarSetupInput').value.trim();
+  const cue = document.getElementById('newVarCueInput').value.trim();
+
+  const value = 'var_' + Date.now();
+  const newVarObj = {
+    value,
+    label,
+    setup: setup ? '⚙️ Setup: ' + setup : '',
+    cue: cue ? '💡 ' + cue : '',
+    defaultSets: [[20, 10, 2, 'Working', 7], [20, 10, 1, 'Working', 7]]
+  };
+
+  const customVars = getJ('iron_custom_variations', {});
+  if (!customVars[activeAddVarCategory]) customVars[activeAddVarCategory] = [];
+  customVars[activeAddVarCategory].push(newVarObj);
+  setJ('iron_custom_variations', customVars);
+  pushToCloud();
+
+  closeAddVarModal();
+  rebuildWorkoutDatabase();
+  renderAll();
+  switchDayView(activeDay);
+
+  // Auto-select the newly created variation
+  setChoice(activeAddVarCategory, value);
+  const ex = FLAT_EXERCISES.find(e => e.category === activeAddVarCategory);
+  if (ex) applyVariation(activeAddVarCategory, ex.prefix, value, true);
+
+  showToast('✨ New equipment variation added!', 'success');
+}
+
+// ==========================================
 // PRESET EDITOR MODAL HANDLERS
 // ==========================================
 function openPresetModal(category) {
@@ -1245,7 +1342,7 @@ function openPresetModal(category) {
 
   const tbody = document.getElementById('presetEditTbody');
   tbody.innerHTML = '';
-  sets.forEach((s, idx) => {
+  sets.forEach((s) => {
     addPresetRowDOM(s.weight, s.reps, s.tag, s.rpe);
   });
   document.getElementById('presetModalOverlay').classList.add('active');
@@ -1527,7 +1624,8 @@ function renderExerciseCard(ex, idx) {
       <select class="machine-dropdown" id="${ex.category}Select" onchange="onVariationChange('${ex.category}', '${ex.prefix}', this)">
         ${options}
       </select>
-      <button class="btn-xs" style="color:var(--accent); border-color:var(--accent-glow);" onclick="openPresetModal('${ex.category}')">⚙️ Edit Preset</button>
+      <button class="btn-xs" style="color:var(--accent); border-color:var(--accent-glow);" onclick="openAddVarModal('${ex.category}')">➕ Add Var</button>
+      <button class="btn-xs" style="color:var(--lime); border-color:rgba(57,255,20,0.35);" onclick="openPresetModal('${ex.category}')">⚙️ Edit Preset</button>
     </div>
     <div class="ex-meta-info">
       <div class="info-row">
