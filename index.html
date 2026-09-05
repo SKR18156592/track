@@ -116,6 +116,7 @@
       border-color: var(--accent-glow);
       box-shadow: 0 20px 50px rgba(0,0,0,0.55), 0 0 20px var(--accent-dim);
     }
+    .exercise-card.dragging { opacity: 0.4; border: 2px dashed var(--accent); }
 
     .schedule-card { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
     .schedule-header { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; color: var(--muted); }
@@ -169,7 +170,8 @@
     .category-section { display: flex; flex-direction: column; gap: 16px; }
     .category-tag { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; padding: 9px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.1); width: fit-content; box-shadow: 0 4px 16px rgba(0,0,0,0.3); background: var(--accent-dim); color: var(--accent); }
 
-    .exercise-card { padding: 22px; border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 16px; position: relative; }
+    .exercise-card { padding: 22px; border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 16px; position: relative; cursor: grab; }
+    .exercise-card:active { cursor: grabbing; }
     .exercise-card.highlight { border-color: var(--accent-glow); box-shadow: 0 14px 36px rgba(0,0,0,0.4), 0 0 25px var(--accent-glow); }
     .ex-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
     .ex-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
@@ -539,6 +541,22 @@
   <button class="btn-xs" style="background: rgba(239,68,68,0.18); color:#fca5a5; border-color:rgba(239,68,68,0.35)" onclick="cancelRestTimer()">Skip</button>
 </div>
 
+<!-- Shareable Workout Summary Modal -->
+<div class="modal-overlay" id="summaryModalOverlay" onclick="if(event.target===this) closeSummaryModal()">
+  <div class="modal-content" style="max-width: 480px; text-align: center;">
+    <div class="modal-header">
+      <h2>🏆 Session Complete Card</h2>
+      <button class="btn-xs" onclick="closeSummaryModal()">✕</button>
+    </div>
+    <div style="display:flex; justify-content:center; margin: 10px 0;">
+      <canvas id="summaryCanvas" width="400" height="500" style="width:100%; height:auto; border-radius:12px; border:1px solid rgba(255,255,255,0.12); box-shadow:0 10px 30px rgba(0,0,0,0.5);"></canvas>
+    </div>
+    <div class="modal-footer" style="justify-content: center;">
+      <button class="btn btn-primary" onclick="downloadSummaryCard()">📥 Download Image</button>
+    </div>
+  </div>
+</div>
+
 <div class="celebration-overlay" id="celebrationOverlay"></div>
 <div class="toast-container" id="toastContainer"></div>
 
@@ -619,7 +637,7 @@ try {
   if (window.supabase && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
-} catch(e) { console.warn('Supabase initialization fallback active'); }
+} catch(e) {}
 
 let isSignUpMode = false;
 let currentUser = null;
@@ -673,7 +691,7 @@ async function handleAuthSubmit(e) {
   const btn = document.getElementById('authSubmitBtn');
 
   if (!supabaseClient) {
-    msg.textContent = 'Supabase client unavailable. Running local standalone mode.';
+    msg.textContent = 'Supabase client unavailable. Running local mode.';
     msg.style.color = 'var(--accent)';
     msg.style.display = 'block';
     setTimeout(() => { document.getElementById('authOverlay').classList.remove('active'); document.getElementById('userBar').style.display = 'none'; }, 1200);
@@ -684,13 +702,7 @@ async function handleAuthSubmit(e) {
   btn.textContent = 'Processing...';
   msg.style.display = 'none';
 
-  let res;
-  if (isSignUpMode) {
-    res = await supabaseClient.auth.signUp({ email, password });
-  } else {
-    res = await supabaseClient.auth.signInWithPassword({ email, password });
-  }
-
+  let res = isSignUpMode ? await supabaseClient.auth.signUp({ email, password }) : await supabaseClient.auth.signInWithPassword({ email, password });
   btn.disabled = false;
   btn.textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
 
@@ -713,10 +725,7 @@ async function handleAuthSubmit(e) {
 }
 
 async function handleSignOut() {
-  if (syncChannel && supabaseClient) {
-    supabaseClient.removeChannel(syncChannel);
-    syncChannel = null;
-  }
+  if (syncChannel && supabaseClient) { supabaseClient.removeChannel(syncChannel); syncChannel = null; }
   if (supabaseClient) await supabaseClient.auth.signOut();
   currentUser = null;
   window.location.reload();
@@ -726,14 +735,8 @@ function updateUserSessionUI(user) {
   const overlay = document.getElementById('authOverlay');
   const userBar = document.getElementById('userBar');
   const emailTag = document.getElementById('userEmailTag');
-  if (user) {
-    overlay.classList.remove('active');
-    userBar.style.display = 'flex';
-    emailTag.textContent = user.email;
-  } else {
-    overlay.classList.add('active');
-    userBar.style.display = 'none';
-  }
+  if (user) { overlay.classList.remove('active'); userBar.style.display = 'flex'; emailTag.textContent = user.email; }
+  else { overlay.classList.add('active'); userBar.style.display = 'none'; }
 }
 
 function refreshAllUI() {
@@ -762,25 +765,23 @@ async function pullFromCloud(showIndicator = false) {
       if (data.custom_exercises && Array.isArray(data.custom_exercises)) { setJ('iron_custom_exercises', data.custom_exercises); updated = true; }
       if (data.hidden_exercises && Array.isArray(data.hidden_exercises)) { setJ('iron_hidden_exercises', data.hidden_exercises); updated = true; }
       if (updated) refreshAllUI();
-    } else {
-      await pushToCloud();
-    }
+    } else { await pushToCloud(); }
     if (syncBtn && showIndicator) {
       syncBtn.textContent = '✅ Synced';
       setTimeout(() => { syncBtn.textContent = '☁️ Sync'; }, 2000);
     }
-    if (showIndicator) showToast('Data synchronized!', 'success');
   } catch (err) {}
 }
 
 async function pushToCloud() {
   if (!currentUser || !supabaseClient) return;
   try {
-    const history = getJ('iron_workout_history', []);
-    const custom_exercises = getJ('iron_custom_exercises', []);
-    const hidden_exercises = getJ('iron_hidden_exercises', []);
     await supabaseClient.from('user_sync').upsert({
-      user_id: currentUser.id, history, custom_exercises, hidden_exercises, updated_at: new Date().toISOString()
+      user_id: currentUser.id,
+      history: getJ('iron_workout_history', []),
+      custom_exercises: getJ('iron_custom_exercises', []),
+      hidden_exercises: getJ('iron_hidden_exercises', []),
+      updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' });
   } catch (err) {}
 }
@@ -809,10 +810,7 @@ function changeTheme(themeName) {
   const sel = document.getElementById('themeSelect');
   if (sel) sel.value = themeName;
 }
-function loadTheme() {
-  const t = getL('iron_theme', 'cyan');
-  changeTheme(t);
-}
+function loadTheme() { changeTheme(getL('iron_theme', 'cyan')); }
 
 // ----- Workout Database -----
 const BASE_EXERCISE_TYPES = {
@@ -842,10 +840,7 @@ function getExerciseType(cat) {
 function getMuscleGroup(category) {
   if (BASE_MUSCLE_GROUP[category]) return BASE_MUSCLE_GROUP[category];
   const day = getCategoryDayIndex(category)?.day;
-  if (day === 1) return 'chest';
-  if (day === 2) return 'legs';
-  if (day === 3) return 'back';
-  return 'arms';
+  return day === 1 ? 'chest' : day === 2 ? 'legs' : day === 3 ? 'back' : 'arms';
 }
 
 const MUSCLE_GROUP_ORDER = ['chest','back','legs','shoulders','arms'];
@@ -867,10 +862,9 @@ function getSupersetId(category) {
   if (!linked) return null;
   const a = getCategoryDayIndex(category), b = getCategoryDayIndex(linked);
   if (!a || !b) return null;
-  if (a.day < b.day || (a.day === b.day && a.idx < b.idx)) return category;
-  return linked;
+  return a.day < b.day || (a.day === b.day && a.idx < b.idx) ? category : linked;
 }
-function epley1RM(w, r) { return (r === 1) ? w : (w * (1 + r / 30)); }
+function epley1RM(w, r) { return r === 1 ? w : w * (1 + r / 30); }
 const V = (value, label, setup, cue, sets) => ({ value, label, setup: setup ? '⚙️ Setup: ' + setup : '', cue: cue ? '💡 ' + cue : '', defaultSets: sets.map(s => ({ weight: s[0], reps: s[1], rir: s[2], tag: s[3] || 'Working', rpe: s[4] == null ? 7 : s[4] })) });
 const E = (category, prefix, title, target, scheme, rest, sets, variations) => {
   const exerciseType = getExerciseType(category);
@@ -883,46 +877,46 @@ const WORKOUT_BASE = {
     sections: [
       { title: 'Chest Focus', tag: 'd1_tag_chest', color: 'red', exercises: [
         E('d1_incline','d1_inc','Incline Upper Chest Press','Upper Pecs (Clavicular Head)','2–3 × 6–10 | Rest 2–3m | RIR 1–2',150,3,[
-          V('iso_smith','Iso-Smith Press','Bench 15°–30°, elbows tucked 45°–60°, 1s pause at bottom','Bench 15°–30°. Elbows tucked ~45°–60°. 1s pause at bottom.',[[20,10,2],[20,8,1],[20,8,1]]),
-          V('smith_bar','Incline Smith Bar Press','Bench 15°–30°, Smith at 3rd hole','Bench 15°–30°. Elbows tucked ~45°–60°. 1s pause at bottom.',[[55,8,2],[55,6,1],[50,6,1]]),
-          V('hammer','Incline Hammer Press','Hole 4/5 + mat behind back','Bench 15°–30°. Elbows tucked ~45°–60°. 1s pause at bottom.',[[40,10,2],[40,8,1],[40,7,1]]),
-          V('db_incline','Incline DB Press','Bench 15°–30°','Bench 15°–30°. Elbows tucked ~45°–60°. 1s pause at bottom.',[[25,10,2],[25,8,1],[22.5,8,1]])
+          V('iso_smith','Iso-Smith Press','Bench 15°–30°, elbows tucked 45°–60°','Bench 15°–30°. Elbows tucked.',[[20,10,2],[20,8,1],[20,8,1]]),
+          V('smith_bar','Incline Smith Bar Press','Bench 15°–30°, Smith at 3rd hole','Bench 15°–30°. Elbows tucked.',[[55,8,2],[55,6,1],[50,6,1]]),
+          V('hammer','Incline Hammer Press','Hole 4/5 + mat behind back','Bench 15°–30°. Elbows tucked.',[[40,10,2],[40,8,1],[40,7,1]]),
+          V('db_incline','Incline DB Press','Bench 15°–30°','Bench 15°–30°. Elbows tucked.',[[25,10,2],[25,8,1],[22.5,8,1]])
         ]),
         E('d1_midchest','d1_mid','Mid Chest Isolation','Mid Pecs (Sternal Head)','2 × 10–12 | Rest 60–90s | RIR 1–2',75,2,[
-          V('pec_dec','Pec Dec Fly','Up:4 / Seat:2','Hold 1s peak contraction. Drive inner elbows together.',[[45,11,2],[45,10,1]]),
-          V('cable_fly','Cable Fly','Cable at chest height, slight forward lean','Hold 1s peak contraction. Drive inner elbows together.',[[15,12,2],[15,11,1]])
+          V('pec_dec','Pec Dec Fly','Up:4 / Seat:2','Hold 1s peak contraction.',[[45,11,2],[45,10,1]]),
+          V('cable_fly','Cable Fly','Cable at chest height','Hold 1s peak contraction.',[[15,12,2],[15,11,1]])
         ]),
         E('d1_lowerchest','d1_low','Lower Chest Isolation','Lower Pecs (Abdominal Head)','2 × 12–15 + dropset | Rest 60–90s',75,2,[
-          V('high_low_cable','High-to-Low Cable Fly','Cable high, bench ~75°','Pulleys above head. Sweep down to hips. 🔥 Dropset on Set 2.',[[12.5,12,2],[7.5,12,0]]),
+          V('high_low_cable','High-to-Low Cable Fly','Cable high, bench ~75°','Sweep down to hips. 🔥 Dropset on Set 2.',[[12.5,12,2],[7.5,12,0]]),
           V('decline_cable','Decline Cable Fly','Cable high, decline angle','Squeeze low line. 🔥 Dropset on Set 2.',[[10,12,2],[7.5,12,0]])
         ])
       ]},
       { title: 'Shoulders', tag: 'd1_tag_shoulders', color: 'blue', exercises: [
         E('d1_shoulder','d1_sh','Overhead Shoulder Press','Front & Medial Delts','2 × 8–12 | Rest 90–120s | RIR 1–2',105,2,[
-          V('iso_mach','Iso-Machine','Hole 4','Elbows forward. Lower to chin/upper chest.',[[30,10,2],[30,8,1]]),
-          V('iso_smith','Iso-Smith','Hole 6','Elbows forward. Lower to chin/upper chest.',[[15,10,2],[15,10,1]]),
-          V('smith_bar','Smith Bar','Hole 6','Elbows forward. Lower to chin/upper chest.',[[35,8,2],[30,10,1]]),
-          V('db_press','Seated DB Press','75° bench','Elbows forward. Lower to chin/upper chest.',[[25,10,2],[25,8,1]])
+          V('iso_mach','Iso-Machine','Hole 4','Elbows forward. Lower to chin.',[[30,10,2],[30,8,1]]),
+          V('iso_smith','Iso-Smith','Hole 6','Elbows forward.',[[15,10,2],[15,10,1]]),
+          V('smith_bar','Smith Bar','Hole 6','Elbows forward.',[[35,8,2],[30,10,1]]),
+          V('db_press','Seated DB Press','75° bench','Elbows forward.',[[25,10,2],[25,8,1]])
         ]),
         E('d1_sidedelt','d1_sd','Side Delt Isolation','Medial Deltoids','3 × 12–20 + dropset | Rest 60s | RIR 0–2',60,3,[
-          V('mach','Machine Lateral Raise','Hole 6','Pulley at wrist height. Raise in scapular plane. 🔥 Dropset on Set 3.',[[15,15,2],[15,15,1],[10,12,0]]),
-          V('cable','Cable Lateral Raise','Single pulley at wrist height','Pulley at wrist height. Raise in scapular plane. 🔥 Dropset on Set 3.',[[5,15,2],[5,15,1],[2.5,12,0]]),
-          V('db','DB Lateral Raise','Standing, 30° scapular plane','Pulley at wrist height. Raise in scapular plane. 🔥 Dropset on Set 3.',[[8,15,2],[8,15,1],[5,12,0]])
+          V('mach','Machine Lateral Raise','Hole 6','Raise in scapular plane. 🔥 Dropset on Set 3.',[[15,15,2],[15,15,1],[10,12,0]]),
+          V('cable','Cable Lateral Raise','Single pulley at wrist height','Raise in scapular plane. 🔥 Dropset on Set 3.',[[5,15,2],[5,15,1],[2.5,12,0]]),
+          V('db','DB Lateral Raise','Standing','Raise in scapular plane. 🔥 Dropset on Set 3.',[[8,15,2],[8,15,1],[5,12,0]])
         ])
       ]},
       { title: 'Arms', tag: 'd1_tag_arms', color: 'green', exercises: [
         E('d1_bicepmid','d1_bm','Biceps Mid-Range / Peak','Biceps Short Head','2 × 8–12 | Rest 60–90s | RIR 1–2',75,2,[
           V('cable_straight','Cable Straight Bar','Cable low pulley','Wrists straight; no momentum.',[[35,10,2],[35,8,1]]),
-          V('preacher','Machine / Preacher Curl','Upper arms flat on pad','Upper arms flat on pad / elbows pinned. Wrists straight; no momentum.',[[30,10,2],[30,8,1]]),
+          V('preacher','Machine / Preacher Curl','Upper arms flat on pad','Wrists straight; no momentum.',[[30,10,2],[30,8,1]]),
           V('ez_bar','EZ-Bar Curl','Standing strict form','Wrists straight; no momentum.',[[25,10,2],[25,8,1]])
         ]),
         E('d1_bicepstretch','d1_bs','Biceps Lengthened Stretch','Biceps Long Head','2–3 × 10–12 | Rest 60–90s | RIR 1–2',75,3,[
-          V('bayesian','Bayesian Cable Curl','Hip height, face away','Pulley at hip height, face away. Keep elbows locked behind torso.',[[15,10,2],[15,10,1],[12.5,10,1]]),
+          V('bayesian','Bayesian Cable Curl','Hip height, face away','Keep elbows locked behind torso.',[[15,10,2],[15,10,1],[12.5,10,1]]),
           V('incline_db','Incline DB Curl','Bench 45°–60°','Keep elbows locked behind torso.',[[12.5,10,2],[12.5,10,1],[10,10,1]])
         ]),
         E('d1_brachialis','d1_br','Brachialis & Width','Brachialis / Forearm Width','2 × 8–12 + dropset | Rest 60–90s | RIR 1–2',75,2,[
-          V('cable_rope','Cable Rope Hammer Curl','Floor dual cable rope','Neutral grip. Flare rope slightly at peak; strict 2–3s negative.',[[25,10,2],[25,8,0]]),
-          V('db_hammer','DB Hammer Curl','Standing neutral hammer','Neutral grip. Strict 2–3s controlled negative.',[[12.5,10,2],[12.5,8,0]])
+          V('cable_rope','Cable Rope Hammer Curl','Floor dual cable rope','Neutral grip. Strict negative.',[[25,10,2],[25,8,0]]),
+          V('db_hammer','DB Hammer Curl','Standing neutral hammer','Neutral grip. Strict negative.',[[12.5,10,2],[12.5,8,0]])
         ])
       ]}
     ]
@@ -932,39 +926,39 @@ const WORKOUT_BASE = {
     sections: [
       { title: 'Quads & Glutes', tag: 'd2_tag_quads', color: 'red', exercises: [
         E('d2_smithSquat','d2_ss','Barbell Smith Back Squat','Quads & Glutes','2 × 6–10 | Rest 2–3m | RIR 1–2',150,2,[
-          V('smith_squat','Smith Machine','Feet shoulder-width, toes out slightly','Feet shoulder-width, toes out slightly. 🔥 Drop ~5% on Set 2.',[[80,8,2],[75,8,1]])
+          V('smith_squat','Smith Machine','Feet shoulder-width','Feet shoulder-width. Drop ~5% on Set 2.',[[80,8,2],[75,8,1]])
         ]),
         E('d2_legext','d2_le','Leg Extension','Quads','3 × 15–20 + dropset | Rest 60–90s | RIR 0–2',90,3,[
-          V('leg_ext_mach','Leg Extension Machine','Pad beneath ankle joint','Control negative; hold 1s squeeze at top. 🔥 Dropset on last set.',[[50,15,2],[50,15,1],[30,15,0]])
+          V('leg_ext_mach','Leg Extension Machine','Pad beneath ankle joint','Hold 1s squeeze at top. 🔥 Dropset.',[[50,15,2],[50,15,1],[30,15,0]])
         ]),
         E('d2_quadpress','d2_qp','Unilateral Quad / Glute Press','Quads & Glutes','2 × 8–12 | Rest 90–120s | RIR 1–2',105,2,[
-          V('bulgarian','Bulgarian Split Squat','Bench at knee height','Torso slight forward lean for glutes / upright for quads. Control descent.',[[20,10,2],[20,10,1]]),
-          V('db_lunges','DB Lunges','Walking or in-place','Torso slight forward lean for glutes / upright for quads. Control descent.',[[20,10,2],[20,10,1]])
+          V('bulgarian','Bulgarian Split Squat','Bench at knee height','Control descent.',[[20,10,2],[20,10,1]]),
+          V('db_lunges','DB Lunges','Walking or in-place','Control descent.',[[20,10,2],[20,10,1]])
         ])
       ]},
       { title: 'Hams & Hips', tag: 'd2_tag_hams', color: 'blue', exercises: [
         E('d2_hamstring','d2_hm','Hamstring Isolation','Hamstrings','2 × 10–15 | Rest 60–90s | RIR 1–2',90,2,[
-          V('seated_curl','Seated Leg Curl','Hips pinned down','Hips strapped/pinned down firmly. Slow eccentric stretch.',[[40,12,2],[40,10,1]]),
-          V('lying_curl','Lying Leg Curl','Hips pinned down','Hips strapped/pinned down firmly. Slow eccentric stretch.',[[35,12,2],[35,10,1]])
+          V('seated_curl','Seated Leg Curl','Hips pinned down','Slow eccentric stretch.',[[40,12,2],[40,10,1]]),
+          V('lying_curl','Lying Leg Curl','Hips pinned down','Slow eccentric stretch.',[[35,12,2],[35,10,1]])
         ]),
         E('d2_adductor','d2_ad','Hip Adduction','Adductors','2 × 12–20 | Rest 60s | RIR 1–2',60,2,[
-          V('mach_adductor','Machine Adductor','Seated upright','Full stretch at open position; pause 1s at full squeeze.',[[40,15,2],[40,15,1]])
+          V('mach_adductor','Machine Adductor','Seated upright','Pause 1s at full squeeze.',[[40,15,2],[40,15,1]])
         ]),
         E('d2_abductor','d2_ab','Hip Abduction','Glute Medius','2 × 12–20 | Rest 60s | RIR 1–2',60,2,[
-          V('mach_abductor','Machine Abductor','Hinge slightly forward','Hinge slightly forward at hips for maximum glute recruitment.',[[40,15,2],[40,15,1]])
+          V('mach_abductor','Machine Abductor','Hinge slightly forward','Max glute recruitment.',[[40,15,2],[40,15,1]])
         ])
       ]},
       { title: 'Calves & Core', tag: 'd2_tag_calves_core', color: 'green', exercises: [
         E('d2_calf','d2_cl','Calf Isolation','Gastrocnemius','3 × 12–20 + dropset | Rest 60–90s | RIR 1–2',75,3,[
-          V('smith_calf','Smith Machine Calf Raise','Elevated toes for deep stretch','Elevated toes for deep stretch. 🔥 Dropset on last set. Keep reps >12.',[[40,15,2],[40,15,1],[20,15,0]]),
-          V('standing_calf_mach','Standing Machine Calf Raise','Elevated toes for deep stretch','Elevated toes for deep stretch. 🔥 Dropset on last set. Keep reps >12.',[[60,15,2],[60,15,1]])
+          V('smith_calf','Smith Machine Calf Raise','Elevated toes','Deep stretch. 🔥 Dropset.',[[40,15,2],[40,15,1],[20,15,0]]),
+          V('standing_calf_mach','Standing Machine Calf Raise','Elevated toes','Deep stretch.',[[60,15,2],[60,15,1]])
         ]),
         E('d2_lowerabs','d2_la','Lower Abs','Lower Abdominals','2–3 × 10–20 | Rest 60s | RIR 1–2',60,3,[
-          V('hanging_raise','Hanging / Captain\'s Chair Leg Raise','Bodyweight','Posterior pelvic tilt; curl pelvis up, do not just swing legs.',[[0,15,2],[0,15,1],[0,12,1]])
+          V('hanging_raise','Hanging / Captain\'s Chair Leg Raise','Bodyweight','Posterior pelvic tilt.',[[0,15,2],[0,15,1],[0,12,1]])
         ]),
         E('d2_upperabs','d2_ua','Upper / Total Abs','Upper Abdominals','2–3 × 12–20 | Rest 60s | RIR 1–2',60,3,[
-          V('mach_crunch','Machine Crunches','Pad across chest','Exhale fully at bottom; crunch ribcage down toward pelvis.',[[45,15,2],[45,15,1],[40,12,1]]),
-          V('cable_crunch','Cable Crunch','High pulley rope / mat','Exhale fully at bottom; crunch ribcage down toward pelvis.',[[25,15,2],[25,15,1],[20,12,1]])
+          V('mach_crunch','Machine Crunches','Pad across chest','Exhale fully at bottom.',[[45,15,2],[45,15,1],[40,12,1]]),
+          V('cable_crunch','Cable Crunch','High pulley rope','Exhale fully at bottom.',[[25,15,2],[25,15,1],[20,12,1]])
         ])
       ]}
     ]
@@ -974,46 +968,46 @@ const WORKOUT_BASE = {
     sections: [
       { title: 'Back Width & Thickness', tag: 'd3_tag_back', color: 'red', exercises: [
         E('d3_backthickness','d3_bt','Upper / Mid Back Thickness','Back Thickness','2–3 × 6–10 | Rest 2–3m | RIR 1–2',150,3,[
-          V('tbar','T-Bar Row','Lower / upper grip','Chest firmly on pad. Drive elbows out ~45°–60°; squeeze shoulder blades.',[[40,9,2],[40,8,1],[40,7,1]]),
-          V('bent_row','Bent-Over Barbell Row','Overhand grip','Drive elbows out ~45°–60°; squeeze shoulder blades.',[[50,8,2],[50,8,1],[50,8,1]]),
-          V('machine_row','Wide-Grip Machine Row','Chest on pad','Chest firmly on pad. Drive elbows out ~45°–60°; squeeze shoulder blades.',[[55,10,2],[55,8,1],[55,8,1]])
+          V('tbar','T-Bar Row','Chest on pad','Drive elbows out; squeeze shoulder blades.',[[40,9,2],[40,8,1],[40,7,1]]),
+          V('bent_row','Bent-Over Barbell Row','Overhand grip','Drive elbows out.',[[50,8,2],[50,8,1],[50,8,1]]),
+          V('machine_row','Wide-Grip Machine Row','Chest on pad','Drive elbows out.',[[55,10,2],[55,8,1],[55,8,1]])
         ]),
         E('d3_latwidth','d3_lw','Vertical Pull / Lat Width','Latissimus Dorsi','2 × 8–12 | Rest 90–120s | RIR 1–2',105,2,[
-          V('mag_pulldown','Mag-Grip Lat Pulldown','Hole 5','Drive elbows down into back pockets; slight torso arch. Control stretch up.',[[50,10,2],[50,7,1]]),
-          V('pullups','Close-Grip Pull-Ups','Bodyweight (BW)','Drive elbows down into back pockets; slight torso arch. Control stretch up.',[[0,8,2],[0,6,1]]),
-          V('underhand_pulldown','Underhand Pulldown','Close-grip underhand','Drive elbows down into back pockets; slight torso arch. Control stretch up.',[[50,10,2],[50,8,1]])
+          V('mag_pulldown','Mag-Grip Lat Pulldown','Hole 5','Drive elbows down into back pockets.',[[50,10,2],[50,7,1]]),
+          V('pullups','Close-Grip Pull-Ups','Bodyweight (BW)','Drive elbows down into back pockets.',[[0,8,2],[0,6,1]]),
+          V('underhand_pulldown','Underhand Pulldown','Close-grip underhand','Drive elbows down into back pockets.',[[50,10,2],[50,8,1]])
         ]),
         E('d3_unilat','d3_ul','Unilateral Lat Isolation','Lats','2 × 10–15 | Rest 60–90s | RIR 1–2',90,2,[
-          V('single_arm_cable','Single-Arm Cable Pulldown','D-Handle','Lean torso toward working side. Drive elbow down to hip crest; no torso rotation.',[[25,12,2],[25,12,1]]),
-          V('half_kneeling','Half-Kneeling Pulldown','Single pulley','Lean torso toward working side. Drive elbow down to hip crest; no torso rotation.',[[25,12,2],[25,12,1]])
+          V('single_arm_cable','Single-Arm Cable Pulldown','D-Handle','Drive elbow down to hip crest.',[[25,12,2],[25,12,1]]),
+          V('half_kneeling','Half-Kneeling Pulldown','Single pulley','Drive elbow down to hip crest.',[[25,12,2],[25,12,1]])
         ])
       ]},
       { title: 'Rear Delts', tag: 'd3_tag_reardelts', color: 'coral', exercises: [
         E('d3_reardelt','d3_rd','Rear Delt Isolation','Rear Delts','2–3 × 12–20 + dropset | Rest 60–90s | RIR 0–2',75,3,[
-          V('rev_pec_dec','Reverse Pec Dec Fly','Hole 7','Pull in 30° scapular plane. 🔥 Dropset on last set.',[[30,15,2],[30,15,1],[15,15,0]]),
-          V('single_arm_cable_fly','Single-Arm Cable Fly','Shoulder height','Pull in 30° scapular plane. 🔥 Dropset on last set.',[[10,15,2],[10,15,1],[5,15,0]]),
-          V('cable_rear_delt','Cable Rear Delt Fly','Shoulder height, dual pulleys','Pull in 30° scapular plane. 🔥 Dropset on last set.',[[15,15,2],[15,15,1],[10,12,0]])
+          V('rev_pec_dec','Reverse Pec Dec Fly','Hole 7','Pull in scapular plane. 🔥 Dropset.',[[30,15,2],[30,15,1],[15,15,0]]),
+          V('single_arm_cable_fly','Single-Arm Cable Fly','Shoulder height','Pull in scapular plane. 🔥 Dropset.',[[10,15,2],[10,15,1],[5,15,0]]),
+          V('cable_rear_delt','Cable Rear Delt Fly','Dual pulleys','Pull in scapular plane. 🔥 Dropset.',[[15,15,2],[15,15,1],[10,12,0]])
         ])
       ]},
       { title: 'Triceps', tag: 'd3_tag_triceps', color: 'blue', exercises: [
         E('d3_tricepskull','d3_ts','Triceps (Long Head Stretch)','Triceps Long Head','2–3 × 8–12 | Rest 90s | RIR 1–2',90,3,[
-          V('db_skull','DB Skull Crusher','Flat / slight incline bench','Upper arms angled slightly back past 90°; get deep elbow stretch.',[[15,10,2],[15,10,1],[12.5,10,1]]),
-          V('ez_skull','EZ-Bar Skull Crusher','EZ-Bar','Upper arms angled slightly back past 90°; get deep elbow stretch.',[[30,10,2],[30,8,1],[30,8,1]])
+          V('db_skull','DB Skull Crusher','Incline bench','Deep elbow stretch.',[[15,10,2],[15,10,1],[12.5,10,1]]),
+          V('ez_skull','EZ-Bar Skull Crusher','EZ-Bar','Deep elbow stretch.',[[30,10,2],[30,8,1],[30,8,1]])
         ]),
         E('d3_triceppushdown','d3_tp','Triceps (Lateral / Medial)','Triceps Lateral & Medial Heads','2 × 10–15 | Rest 60–90s | RIR 1–2',75,2,[
-          V('vulken','Vulken Grip Pushdown','Single pulley, overhand','Pin elbows to ribs. Flare out at bottom; lock out cleanly.',[[20,12,2],[20,12,1]]),
-          V('rope','Rope Pushdown','Single pulley rope','Pin elbows to ribs. Flare out at bottom; lock out cleanly.',[[20,12,2],[20,12,1]])
+          V('vulken','Vulken Grip Pushdown','Single pulley','Pin elbows to ribs.',[[20,12,2],[20,12,1]]),
+          V('rope','Rope Pushdown','Rope attachment','Pin elbows to ribs.',[[20,12,2],[20,12,1]])
         ]),
         E('d3_tricepoverhead','d3_to','Triceps Extension','Triceps Long Head','2 × 10–15 | Rest 60–90s | RIR 1–2',75,2,[
-          V('single_arm_pushdown','Single-Arm Pushdown','Single pulley, vulken grip','Pin elbow to side; focus on full extension and lock at bottom.',[[10,12,2],[10,12,1]]),
-          V('overhead_ext','Overhead Cable Extension','Pulley at shoulder/chest height, face away','Face away, keep elbow stable; get full stretch behind head.',[[15,12,2],[15,12,1]])
+          V('single_arm_pushdown','Single-Arm Pushdown','Vulken grip','Full extension at bottom.',[[10,12,2],[10,12,1]]),
+          V('overhead_ext','Overhead Cable Extension','Face away','Full stretch behind head.',[[15,12,2],[15,12,1]])
         ])
       ]},
       { title: 'Traps', tag: 'd3_tag_traps', color: 'green', exercises: [
         E('d3_trap','d3_tr','Trap Hypertrophy','Upper Trapezius','3 × 8–15 | Rest 90–120s | RIR 1–2',105,3,[
-          V('shrug_mach','Shrug Machine','Seat adjusted, arms straight','Straight arms; elevate shoulders straight up to ears. Hold 1s peak squeeze.',[[60,12,2],[60,10,1],[60,10,1]]),
-          V('smith_shrug','Smith Shrugs','Arms straight at sides','Straight arms; elevate shoulders straight up to ears. Hold 1s peak squeeze.',[[50,10,2],[50,10,1],[50,10,1]]),
-          V('db_shrug','DB Shrugs','Arms straight, neutral grip','Straight arms; elevate shoulders straight up to ears. Hold 1s peak squeeze.',[[30,12,2],[30,12,1],[30,10,1]])
+          V('shrug_mach','Shrug Machine','Arms straight','Elevate shoulders straight up. Hold 1s peak.',[[60,12,2],[60,10,1],[60,10,1]]),
+          V('smith_shrug','Smith Shrugs','Arms straight','Elevate shoulders straight up.',[[50,10,2],[50,10,1],[50,10,1]]),
+          V('db_shrug','DB Shrugs','Neutral grip','Elevate shoulders straight up.',[[30,12,2],[30,12,1],[30,10,1]])
         ])
       ]}
     ]
@@ -1028,7 +1022,6 @@ function rebuildWorkoutDatabase() {
   const hiddenExs = getJ('iron_hidden_exercises', []);
   const customExs = getJ('iron_custom_exercises', []);
 
-  // Add custom exercises
   customExs.forEach(c => {
     const dayObj = WORKOUT[c.day];
     if (dayObj && dayObj.sections.length > 0) {
@@ -1039,7 +1032,6 @@ function rebuildWorkoutDatabase() {
     }
   });
 
-  // Filter out hidden/removed exercises
   for (const dNum of [1, 2, 3]) {
     WORKOUT[dNum].sections.forEach((sec, sIdx) => {
       sec.exercises = sec.exercises.filter(ex => !hiddenExs.includes(ex.category));
@@ -1061,9 +1053,6 @@ function rebuildWorkoutDatabase() {
   Object.values(WORKOUT).forEach(day => day.sections.forEach(sec => sec.exercises.forEach(ex => FLAT_EXERCISES.push(ex))));
 }
 
-// ==========================================
-// 3. AUTOMATED PROGRESSIVE OVERLOAD ENGINE
-// ==========================================
 function getProgressiveOverloadSuggestion(ex, varObj) {
   const history = getJ('iron_workout_history', []);
   let lastSessionSets = null;
@@ -1090,7 +1079,7 @@ function getProgressiveOverloadSuggestion(ex, varObj) {
     const lastW = parseFloat(lastSessionSets[0].weight) || 0;
     if (lastW > 0) {
       const suggestedW = lastW + (lastW >= 40 ? 2.5 : 1.25);
-      return `🔥 Overload Suggestion: Increase weight to ${suggestedW}kg across working sets!`;
+      return `🔥 Overload Suggestion: Increase weight to ${suggestedW}kg!`;
     }
   }
   return null;
@@ -1157,7 +1146,7 @@ function handleSaveCustomExercise(e) {
 }
 
 function removeExercise(category) {
-  if (!confirm('Are you sure you want to remove this exercise from your workout split?')) return;
+  if (!confirm('Remove this exercise from your workout split?')) return;
   const hidden = getJ('iron_hidden_exercises', []);
   if (!hidden.includes(category)) hidden.push(category);
   setJ('iron_hidden_exercises', hidden);
@@ -1165,7 +1154,7 @@ function removeExercise(category) {
   rebuildWorkoutDatabase();
   renderAll();
   switchDayView(activeDay);
-  showToast('🗑️ Exercise removed from split.', 'info');
+  showToast('🗑️ Exercise removed.', 'info');
 }
 
 function restoreAllHiddenExercises() {
@@ -1176,6 +1165,55 @@ function restoreAllHiddenExercises() {
   renderAll();
   switchDayView(activeDay);
   showToast('♻️ All exercises restored!', 'success');
+}
+
+// ----- Drag and Drop Handlers -----
+let draggedCategory = null;
+
+function onDragStart(e, category) {
+  draggedCategory = category;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => e.target.classList.add('dragging'), 0);
+}
+
+function onDragEnd(e) {
+  draggedCategory = null;
+  document.querySelectorAll('.exercise-card').forEach(c => c.classList.remove('dragging'));
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function onDrop(e, targetCategory) {
+  e.preventDefault();
+  if (!draggedCategory || draggedCategory === targetCategory) return;
+
+  let targetDay = null, targetSecIdx = -1;
+  for (const dNum of [1, 2, 3]) {
+    WORKOUT[dNum].sections.forEach((sec, sIdx) => {
+      if (sec.exercises.some(e => e.category === targetCategory)) {
+        targetDay = dNum;
+        targetSecIdx = sIdx;
+      }
+    });
+  }
+
+  if (targetDay === null) return;
+  const section = WORKOUT[targetDay].sections[targetSecIdx];
+  const oldIdx = section.exercises.findIndex(e => e.category === draggedCategory);
+  const newIdx = section.exercises.findIndex(e => e.category === targetCategory);
+
+  if (oldIdx === -1 || newIdx === -1) return;
+
+  const [moved] = section.exercises.splice(oldIdx, 1);
+  section.exercises.splice(newIdx, 0, moved);
+
+  setJ(`iron_order_${targetDay}_${targetSecIdx}`, section.exercises.map(e => e.category));
+  rebuildWorkoutDatabase();
+  renderAll();
+  switchDayView(activeDay);
 }
 
 function captureCurrentFormValues() {
@@ -1225,32 +1263,6 @@ function restoreFormValues(data) {
   }
   updateProgress();
   updateSessionStats();
-}
-
-function reorderExercise(category, direction) {
-  let targetDay = null, targetSecIdx = -1, targetExIdx = -1;
-  for (const dNum of [1, 2, 3]) {
-    const day = WORKOUT[dNum];
-    day.sections.forEach((sec, sIdx) => {
-      const eIdx = sec.exercises.findIndex(e => e.category === category);
-      if (eIdx !== -1) { targetDay = dNum; targetSecIdx = sIdx; targetExIdx = eIdx; }
-    });
-  }
-  if (targetDay === null) return;
-  const section = WORKOUT[targetDay].sections[targetSecIdx];
-  const newExIdx = targetExIdx + direction;
-  if (newExIdx < 0 || newExIdx >= section.exercises.length) return;
-
-  const temp = section.exercises[targetExIdx];
-  section.exercises[targetExIdx] = section.exercises[newExIdx];
-  section.exercises[newExIdx] = temp;
-
-  setJ(`iron_order_${targetDay}_${targetSecIdx}`, section.exercises.map(e => e.category));
-  const formData = captureCurrentFormValues();
-  rebuildWorkoutDatabase();
-  renderAll();
-  switchDayView(activeDay);
-  restoreFormValues(formData);
 }
 
 function formatPreset(sets) {
@@ -1364,10 +1376,10 @@ function renderExerciseCard(ex, idx) {
   const supBtn = getSupersetBtn(ex.category);
 
   return `
-  <div class="exercise-card ${idx===1 ? 'highlight' : ''} ${dec.cls}" data-category="${ex.category}" data-prefix="${ex.prefix}" data-exercise-type="${ex.exerciseType}" data-rest="${ex.rest}">
+  <div class="exercise-card ${idx===1 ? 'highlight' : ''} ${dec.cls}" draggable="true" ondragstart="onDragStart(event, '${ex.category}')" ondragend="onDragEnd(event)" ondragover="onDragOver(event)" ondrop="onDrop(event, '${ex.category}')" data-category="${ex.category}" data-prefix="${ex.prefix}" data-exercise-type="${ex.exerciseType}" data-rest="${ex.rest}">
     <div class="ex-header">
       <div>
-        <div class="ex-title-row"><span class="ex-number">${String(idx).padStart(2,'0')}</span><div class="ex-title">${ex.title}</div>${dec.badge}</div>
+        <div class="ex-title-row"><span class="ex-number">${String(idx).padStart(2,'0')}</span><div class="ex-title">⠿ ${ex.title}</div>${dec.badge}</div>
         <div class="ex-target">${ex.target}</div>
       </div>
       <div class="ex-meta">
@@ -1400,8 +1412,6 @@ function renderExerciseCard(ex, idx) {
     <div class="ex-actions-bar">
       <button class="btn-xs" onclick="addSetRow('table_${ex.prefix}', '${ex.prefix}', ${ex.rest})">➕ Add Set</button>
       <button class="btn-xs" onclick="removeSetRow('table_${ex.prefix}')">➖ Remove Set</button>
-      <button class="btn-xs" onclick="reorderExercise('${ex.category}', -1)">⬆️ Up</button>
-      <button class="btn-xs" onclick="reorderExercise('${ex.category}', 1)">⬇️ Down</button>
       ${supBtn}
       <button class="btn-xs" style="color:#fca5a5; border-color:rgba(239,68,68,0.35);" onclick="removeExercise('${ex.category}')">🗑️ Remove</button>
     </div>
@@ -1443,12 +1453,8 @@ function applyVariation(category, prefix, variation, fillRows=true) {
 
   const suggestion = getProgressiveOverloadSuggestion(ex, varObj);
   if (overloadBadge) {
-    if (suggestion) {
-      overloadBadge.style.display = 'inline-flex';
-      overloadBadge.textContent = suggestion;
-    } else {
-      overloadBadge.style.display = 'none';
-    }
+    if (suggestion) { overloadBadge.style.display = 'inline-flex'; overloadBadge.textContent = suggestion; }
+    else { overloadBadge.style.display = 'none'; }
   }
 
   const stored = getPreset(category, variation);
@@ -1540,12 +1546,8 @@ function removeSetRow(tableId) {
 function showTab(tab) {
   document.querySelectorAll('.bottom-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.app-view').forEach(v => v.classList.toggle('active', v.id === 'view-' + tab));
-  if (tab === 'analytics') {
-    setAnalyticRange(analyticRange);
-    render1RMTrends();
-  } else if (tab === 'settings') {
-    renderSnapshotsList();
-  }
+  if (tab === 'analytics') { setAnalyticRange(analyticRange); render1RMTrends(); }
+  else if (tab === 'settings') { renderSnapshotsList(); }
 }
 
 function switchDayView(day) {
@@ -1554,8 +1556,7 @@ function switchDayView(day) {
   document.querySelectorAll('.nav-btn').forEach((btn, i) => btn.classList.toggle('active', i + 1 === day));
   document.querySelectorAll('.day-view').forEach((view, i) => view.classList.toggle('active', i + 1 === day));
   const cfg = WORKOUT[day];
-  const badge = document.getElementById('currentDayBadge');
-  badge.textContent = cfg.badge;
+  document.getElementById('currentDayBadge').textContent = cfg.badge;
   document.getElementById('currentDayTitle').textContent = cfg.title;
   document.getElementById('currentDaySub').textContent = cfg.sub;
   updateSectionWorkingSetCounts();
@@ -1578,9 +1579,7 @@ function updateSectionWorkingSetCounts() {
 function getDaySetCounts(day) {
   const view = document.getElementById('view-day-' + day);
   if (!view) return { total: 0, completed: 0 };
-  const total = view.querySelectorAll('tbody tr').length;
-  const completed = view.querySelectorAll('.check-btn.completed').length;
-  return { total, completed };
+  return { total: view.querySelectorAll('tbody tr').length, completed: view.querySelectorAll('.check-btn.completed').length };
 }
 
 function updateSessionStats() {
@@ -1638,20 +1637,13 @@ function startRestTimer(seconds) {
     const m = String(Math.floor(remaining / 60)).padStart(2, '0');
     const s = String(remaining % 60).padStart(2, '0');
     display.textContent = `${m}:${s}`;
-    if (remaining <= 0) {
-      clearInterval(restInterval);
-      modal.classList.remove('active');
-      playBeep();
-    }
+    if (remaining <= 0) { clearInterval(restInterval); modal.classList.remove('active'); playBeep(); }
   }
   tick();
   restInterval = setInterval(tick, 250);
 }
 
-function cancelRestTimer() {
-  clearInterval(restInterval);
-  document.getElementById('restModal').classList.remove('active');
-}
+function cancelRestTimer() { clearInterval(restInterval); document.getElementById('restModal').classList.remove('active'); }
 
 function unlockAudio() {
   try {
@@ -1684,9 +1676,10 @@ function playBeep() {
 function finishCurrentDayWorkout() {
   const view = document.getElementById('view-day-' + activeDay);
   if (!view) return;
+  let totalTonnage = 0, totalSets = 0;
   const exercises = [];
   view.querySelectorAll('.exercise-card').forEach(card => {
-    const name = card.querySelector('.ex-title').textContent;
+    const name = card.querySelector('.ex-title').textContent.replace('⠿ ', '');
     const select = card.querySelector('.machine-dropdown');
     const variationValue = select ? select.value : '';
     const machineOpt = select ? select.selectedOptions[0].textContent : 'Default';
@@ -1698,10 +1691,15 @@ function finishCurrentDayWorkout() {
       const tIn = tr.querySelector('.set-tag');
       const rpIn = tr.querySelector('.set-rpe');
       if (!rIn || rIn.value === '') return;
-      sets.push({ setNum: i + 1, weight: wIn?.value || '0', reps: rIn?.value || '0', rir: riIn?.value || '0', tag: tIn?.value || 'Working', rpe: rpIn?.value || '7', done: tr.querySelector('.check-btn').classList.contains('completed') });
+      const done = tr.querySelector('.check-btn').classList.contains('completed');
+      const w = parseFloat(wIn?.value) || 0;
+      const r = parseFloat(rIn?.value) || 0;
+      if (done) { totalTonnage += w * r; totalSets++; }
+      sets.push({ setNum: i + 1, weight: wIn?.value || '0', reps: rIn?.value || '0', rir: riIn?.value || '0', tag: tIn?.value || 'Working', rpe: rpIn?.value || '7', done });
     });
     exercises.push({ name, category: card.dataset.category, variationValue, exerciseType: card.dataset.exerciseType, machineOpt, sets });
   });
+
   const record = {
     id: 'session_' + Date.now(), day: activeDay, dayTitle: WORKOUT[activeDay].title,
     date: document.getElementById('sessionDate').value,
@@ -1717,7 +1715,64 @@ function finishCurrentDayWorkout() {
   setJ('iron_workout_history', history);
   pushToCloud();
   showToast('💾 Workout saved & synced!', 'success');
-  showCelebration([{ text: `🎉 Day ${activeDay} workout saved!`, cls: 'pr' }]);
+  showCelebration([{ text: `🎉 Day ${activeDay} saved!`, cls: 'pr' }]);
+  renderSummaryCard(WORKOUT[activeDay].title, totalTonnage, totalSets, record.date);
+}
+
+function renderSummaryCard(title, tonnage, sets, date) {
+  const canvas = document.getElementById('summaryCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0e101c';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = '#00f3ff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(12, 12, canvas.width - 24, canvas.height - 24);
+
+  ctx.fillStyle = '#00f3ff';
+  ctx.font = 'bold 16px "Plus Jakarta Sans", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('⚡ IRONTRACK PRO SPLIT', canvas.width / 2, 48);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 20px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText(title, canvas.width / 2, 95);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '13px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText(`Date: ${date}`, canvas.width / 2, 125);
+
+  ctx.fillStyle = 'rgba(30, 41, 59, 0.8)';
+  ctx.fillRect(40, 160, 320, 100);
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.strokeRect(40, 160, 320, 100);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '12px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText('TOTAL VOLUME TONNAGE', canvas.width / 2, 190);
+  ctx.fillStyle = '#39ff14';
+  ctx.font = 'bold 32px "JetBrains Mono", monospace';
+  ctx.fillText(`${tonnage.toFixed(0)} kg`, canvas.width / 2, 235);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 15px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText(`Completed Sets: ${sets}`, canvas.width / 2, 310);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '11px "Plus Jakarta Sans", sans-serif';
+  ctx.fillText('Progressive Overload Verified', canvas.width / 2, 430);
+
+  document.getElementById('summaryModalOverlay').classList.add('active');
+}
+
+function closeSummaryModal() { document.getElementById('summaryModalOverlay').classList.remove('active'); }
+function downloadSummaryCard() {
+  const canvas = document.getElementById('summaryCanvas');
+  const link = document.createElement('a');
+  link.download = `irontrack_workout_${new Date().toISOString().slice(0,10)}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
 }
 
 function updateCurrentDayPresets() {
@@ -1769,7 +1824,7 @@ function computePlates() {
   if (total <= bar) { res.textContent = 'Load Each Side: 0.0 kg'; breakText.textContent = 'Target weight is less than bar.'; return; }
   const side = (total - bar) / 2;
   res.textContent = `Load Each Side: ${side.toFixed(2)} kg`;
-  const { list, rem } = getPlateBreakdown(side);
+  const { list } = getPlateBreakdown(side);
   const counts = {};
   list.forEach(p => counts[p] = (counts[p] || 0) + 1);
   const used = Object.keys(counts).map(Number).sort((a,b)=>b-a).map(p => `${counts[p]}× ${p}kg`);
