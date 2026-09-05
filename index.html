@@ -501,6 +501,9 @@
         </div>
       </div>
       <div class="settings-card">
+        <button class="btn btn-secondary" onclick="restoreAllHiddenExercises()">♻️ Restore All Removed Exercises</button>
+      </div>
+      <div class="settings-card">
         <label class="settings-row"><span>🔊 Enable Rest Timer Beeps</span><input type="checkbox" id="soundToggle" checked onchange="saveSettings()"></label>
       </div>
       <div class="settings-card">
@@ -519,11 +522,6 @@
           <span>📥 Import Backup (JSON)</span>
           <input type="file" id="importBackupInput" class="settings-file" accept=".json,application/json" onchange="importBackupFile(this)">
         </label>
-      </div>
-      <div class="settings-card" style="gap:16px;">
-        <div style="font-size:15px; font-weight:800;">📸 Snapshots</div>
-        <p style="font-size:12.5px; color:var(--muted); margin:0;">A snapshot is saved automatically every time you finish a session. Restore or delete older snapshots below.</p>
-        <div id="snapshotsList" style="display:flex; flex-direction:column; gap:10px;"></div>
       </div>
     </section>
   </main>
@@ -756,12 +754,13 @@ async function pullFromCloud(showIndicator = false) {
   try {
     const syncBtn = document.getElementById('manualSyncBtn');
     if (syncBtn && showIndicator) syncBtn.textContent = '⏳ Syncing...';
-    const { data, error } = await supabaseClient.from('user_sync').select('history, custom_exercises').eq('user_id', currentUser.id).maybeSingle();
+    const { data, error } = await supabaseClient.from('user_sync').select('history, custom_exercises, hidden_exercises').eq('user_id', currentUser.id).maybeSingle();
     if (error) return;
     if (data) {
       let updated = false;
       if (data.history && Array.isArray(data.history)) { setJ('iron_workout_history', data.history); updated = true; }
       if (data.custom_exercises && Array.isArray(data.custom_exercises)) { setJ('iron_custom_exercises', data.custom_exercises); updated = true; }
+      if (data.hidden_exercises && Array.isArray(data.hidden_exercises)) { setJ('iron_hidden_exercises', data.hidden_exercises); updated = true; }
       if (updated) refreshAllUI();
     } else {
       await pushToCloud();
@@ -779,8 +778,9 @@ async function pushToCloud() {
   try {
     const history = getJ('iron_workout_history', []);
     const custom_exercises = getJ('iron_custom_exercises', []);
+    const hidden_exercises = getJ('iron_hidden_exercises', []);
     await supabaseClient.from('user_sync').upsert({
-      user_id: currentUser.id, history, custom_exercises, updated_at: new Date().toISOString()
+      user_id: currentUser.id, history, custom_exercises, hidden_exercises, updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' });
   } catch (err) {}
 }
@@ -793,6 +793,7 @@ function subscribeToRealtimeSync() {
       if (payload.new) {
         if (Array.isArray(payload.new.history)) setJ('iron_workout_history', payload.new.history);
         if (Array.isArray(payload.new.custom_exercises)) setJ('iron_custom_exercises', payload.new.custom_exercises);
+        if (Array.isArray(payload.new.hidden_exercises)) setJ('iron_hidden_exercises', payload.new.hidden_exercises);
         refreshAllUI();
         showToast('📥 Live update synced!', 'info');
       }
@@ -1024,7 +1025,10 @@ let FLAT_EXERCISES = [];
 
 function rebuildWorkoutDatabase() {
   WORKOUT = JSON.parse(JSON.stringify(WORKOUT_BASE));
+  const hiddenExs = getJ('iron_hidden_exercises', []);
   const customExs = getJ('iron_custom_exercises', []);
+
+  // Add custom exercises
   customExs.forEach(c => {
     const dayObj = WORKOUT[c.day];
     if (dayObj && dayObj.sections.length > 0) {
@@ -1035,8 +1039,10 @@ function rebuildWorkoutDatabase() {
     }
   });
 
+  // Filter out hidden/removed exercises
   for (const dNum of [1, 2, 3]) {
     WORKOUT[dNum].sections.forEach((sec, sIdx) => {
+      sec.exercises = sec.exercises.filter(ex => !hiddenExs.includes(ex.category));
       const savedOrder = getJ(`iron_order_${dNum}_${sIdx}`);
       if (savedOrder && Array.isArray(savedOrder)) {
         sec.exercises.sort((a, b) => {
@@ -1071,7 +1077,6 @@ function getProgressiveOverloadSuggestion(ex, varObj) {
   }
   if (!lastSessionSets || !lastSessionSets.length) return null;
 
-  // Check if all working sets hit or exceeded target reps with RIR <= 1
   let allTargetMet = true;
   lastSessionSets.forEach(s => {
     if (s.tag === 'Working') {
@@ -1149,6 +1154,28 @@ function handleSaveCustomExercise(e) {
   renderAll();
   switchDayView(activeDay);
   showToast('✨ Custom exercise added!', 'success');
+}
+
+function removeExercise(category) {
+  if (!confirm('Are you sure you want to remove this exercise from your workout split?')) return;
+  const hidden = getJ('iron_hidden_exercises', []);
+  if (!hidden.includes(category)) hidden.push(category);
+  setJ('iron_hidden_exercises', hidden);
+  pushToCloud();
+  rebuildWorkoutDatabase();
+  renderAll();
+  switchDayView(activeDay);
+  showToast('🗑️ Exercise removed from split.', 'info');
+}
+
+function restoreAllHiddenExercises() {
+  if (!confirm('Restore all removed exercises back to your workout days?')) return;
+  localStorage.removeItem('iron_hidden_exercises');
+  pushToCloud();
+  rebuildWorkoutDatabase();
+  renderAll();
+  switchDayView(activeDay);
+  showToast('♻️ All exercises restored!', 'success');
 }
 
 function captureCurrentFormValues() {
@@ -1335,8 +1362,6 @@ function renderExerciseCard(ex, idx) {
   const sets = firstVar.defaultSets;
   const dec = getSupersetDecorations(ex.category);
   const supBtn = getSupersetBtn(ex.category);
-  const isCustom = ex.category.startsWith('cus_');
-  const deleteBtn = isCustom ? `<button class="btn-xs" style="color:#fca5a5; border-color:rgba(239,68,68,0.35);" onclick="deleteCustomExercise('${ex.category}')">🗑️ Delete</button>` : '';
 
   return `
   <div class="exercise-card ${idx===1 ? 'highlight' : ''} ${dec.cls}" data-category="${ex.category}" data-prefix="${ex.prefix}" data-exercise-type="${ex.exerciseType}" data-rest="${ex.rest}">
@@ -1378,26 +1403,16 @@ function renderExerciseCard(ex, idx) {
       <button class="btn-xs" onclick="reorderExercise('${ex.category}', -1)">⬆️ Up</button>
       <button class="btn-xs" onclick="reorderExercise('${ex.category}', 1)">⬇️ Down</button>
       ${supBtn}
-      ${deleteBtn}
+      <button class="btn-xs" style="color:#fca5a5; border-color:rgba(239,68,68,0.35);" onclick="removeExercise('${ex.category}')">🗑️ Remove</button>
     </div>
   </div>`;
-}
-
-function deleteCustomExercise(category) {
-  if (!confirm('Delete this custom exercise?')) return;
-  let customList = getJ('iron_custom_exercises', []);
-  customList = customList.filter(c => c.category !== category);
-  setJ('iron_custom_exercises', customList);
-  pushToCloud();
-  rebuildWorkoutDatabase();
-  renderAll();
-  switchDayView(activeDay);
 }
 
 function renderDay(dayNum) {
   const day = WORKOUT[dayNum];
   let html = `<div class="day-view" id="view-day-${dayNum}">`;
   day.sections.forEach((sec, sidx) => {
+    if (sec.exercises.length === 0) return;
     html += `<div class="category-section">
       <div class="category-tag tag-${sec.color}" id="${sec.tag}">${sidx+1}. ${sec.title} (<span class="set-count">0</span> Working Sets)</div>`;
       sec.exercises.forEach((ex, eidx) => { html += renderExerciseCard(ex, eidx+1); });
@@ -1426,7 +1441,6 @@ function applyVariation(category, prefix, variation, fillRows=true) {
   if (setup) { setup.style.display = varObj.setup ? 'inline-flex' : 'none'; setup.textContent = varObj.setup; }
   if (cue) { cue.style.display = varObj.cue ? 'inline-flex' : 'none'; cue.textContent = varObj.cue; }
 
-  // Progressive Overload Suggestion Check
   const suggestion = getProgressiveOverloadSuggestion(ex, varObj);
   if (overloadBadge) {
     if (suggestion) {
