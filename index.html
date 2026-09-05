@@ -840,7 +840,7 @@ async function pullFromCloud(showIndicator = false) {
       if (data.var_order && typeof data.var_order === 'object') { setJ('iron_var_order', data.var_order); updated = true; }
       if (data.exercise_orders && typeof data.exercise_orders === 'object') {
         setJ('iron_all_exercise_orders', data.exercise_orders);
-        for (const k in data.exercise_orders) { setJ(k, data.exercise_orders[k]); }
+        for (const key in data.exercise_orders) { setJ(key, data.exercise_orders[key]); }
         updated = true;
       }
       if (updated) refreshAllUI();
@@ -916,7 +916,7 @@ function subscribeToRealtimeSync() {
           }
           if (payload.new.exercise_orders && typeof payload.new.exercise_orders === 'object') {
             setJ('iron_all_exercise_orders', payload.new.exercise_orders);
-            for (const k in payload.new.exercise_orders) { setJ(k, payload.new.exercise_orders[k]); }
+            for (const key in payload.new.exercise_orders) { setJ(key, payload.new.exercise_orders[key]); }
           }
           refreshAllUI();
           showToast('📥 Live update synced from another device!', 'info');
@@ -1543,10 +1543,6 @@ function restoreAllHiddenExercises() {
   localStorage.removeItem('iron_hidden_variations');
   localStorage.removeItem('iron_var_order');
   localStorage.removeItem('iron_all_exercise_orders');
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (k && k.startsWith('iron_order_')) localStorage.removeItem(k);
-  }
   pushToCloud();
   rebuildWorkoutDatabase();
   renderAll();
@@ -1672,7 +1668,7 @@ function renderSetRows(prefix, sets, rest) {
       <td><div class="stepper"><button class="stepper-btn" onclick="stepValue('${prefix}_w_${i}', -2.5)">−</button><input type="number" class="input-field set-weight" id="${prefix}_w_${i}" placeholder="kg"><button class="stepper-btn" onclick="stepValue('${prefix}_w_${i}', 2.5)">+</button></div></td>
       <td><div class="stepper"><button class="stepper-btn" onclick="stepValue('${prefix}_r_${i}', -1)">−</button><input type="number" class="input-field set-reps" id="${prefix}_r_${i}" placeholder="reps"><button class="stepper-btn" onclick="stepValue('${prefix}_r_${i}', 1)">+</button></div></td>
       <td><select class="set-tag" id="${prefix}_t_${i}"><option value="Warmup" ${tag==='Warmup'?'selected':''}>Warmup</option><option value="Working" ${tag==='Working'?'selected':''}>Working</option><option value="Drop Set" ${tag==='Drop Set'?'selected':''}>Drop Set</option><option value="Failure" ${tag==='Failure'?'selected':''}>Failure</option></select></td>
-      <td><div class="rpe-wrap"><input type="range" class="set-rpe" id="${prefix}_rp_${n}" min="1" max="10" step="1" value="${rpe}" oninput="updateRpeLabel(this, '${prefix}_rpl_${i}')"><span class="rpe-val" id="${prefix}_rpl_${i}">${rpe}</span></div></td>
+      <td><div class="rpe-wrap"><input type="range" class="set-rpe" id="${prefix}_rp_${i}" min="1" max="10" step="1" value="${rpe}" oninput="updateRpeLabel(this, '${prefix}_rpl_${i}')"><span class="rpe-val" id="${prefix}_rpl_${i}">${rpe}</span></div></td>
       <td><input type="number" class="input-field set-rir" id="${prefix}_ri_${i}" value="${rir}"></td>
       <td><button class="check-btn" onclick="toggleSet(this, ${rest})">✓</button></td>
     </tr>`;
