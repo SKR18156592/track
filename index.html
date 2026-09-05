@@ -439,7 +439,6 @@
         <button class="btn btn-secondary" onclick="openHistoryModal()">📋 Log History</button>
         <button class="btn btn-info" onclick="openAddExModal()">➕ Add Exercise</button>
         <button class="btn btn-secondary" onclick="resetCurrentDayForm()">🔄 Reset Day</button>
-        <button class="btn btn-warning" onclick="updateCurrentDayPresets()">📌 Update Presets</button>
         <button class="btn btn-primary" onclick="finishCurrentDayWorkout()">💾 Save Session</button>
       </div>
     </section>
@@ -594,6 +593,33 @@
         <button type="submit" class="btn btn-primary">Save Exercise</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Edit Preset Modal -->
+<div class="modal-overlay" id="presetModalOverlay" onclick="if(event.target===this) closePresetModal()">
+  <div class="modal-content" style="max-width: 540px;">
+    <div class="modal-header">
+      <h2 id="presetModalTitle">⚙️ Edit Preset</h2>
+      <button class="btn-xs" onclick="closePresetModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px; color:var(--muted);">Customize default sets for this equipment variation. These values will load automatically when starting a session or resetting a day.</p>
+      <div class="sets-table-wrap">
+        <table class="sets-table" id="presetEditTable">
+          <thead><tr><th>Set</th><th>Weight (kg)</th><th>Reps</th><th>Tag</th><th>RPE</th></tr></thead>
+          <tbody id="presetEditTbody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:4px;">
+        <button class="btn-xs" onclick="addPresetRow()">➕ Add Set</button>
+        <button class="btn-xs" onclick="removePresetRow()">➖ Remove Set</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closePresetModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="saveActivePresetModal()">Save Preset</button>
+    </div>
   </div>
 </div>
 
@@ -1109,6 +1135,7 @@ let restInterval = null;
 let audioCtx = null;
 let confettiFired = false;
 let lastFinishedRecord = null;
+let activePresetModalData = null; // { category, variationValue }
 
 const getL = (k, def) => { try { const v = localStorage.getItem(k); return v === null ? def : v; } catch(e){ return def; } };
 const setL = (k, v) => { try { localStorage.setItem(k, v); } catch(e){} };
@@ -1198,6 +1225,82 @@ function handleSaveCustomExercise(e) {
   renderAll();
   switchDayView(activeDay);
   showToast('✨ Custom exercise added!', 'success');
+}
+
+// ==========================================
+// PRESET EDITOR MODAL HANDLERS
+// ==========================================
+function openPresetModal(category) {
+  const ex = FLAT_EXERCISES.find(e => e.category === category);
+  if (!ex) return;
+  const select = document.getElementById(category + 'Select');
+  const variationValue = select ? select.value : ex.variations[0].value;
+  const varObj = ex.variations.find(v => v.value === variationValue) || ex.variations[0];
+
+  activePresetModalData = { category, variationValue };
+  document.getElementById('presetModalTitle').textContent = `⚙️ Edit Preset: ${ex.title} (${varObj.label})`;
+
+  const stored = getPreset(category, variationValue);
+  const sets = (stored && stored.length) ? stored : varObj.defaultSets;
+
+  const tbody = document.getElementById('presetEditTbody');
+  tbody.innerHTML = '';
+  sets.forEach((s, idx) => {
+    addPresetRowDOM(s.weight, s.reps, s.tag, s.rpe);
+  });
+  document.getElementById('presetModalOverlay').classList.add('active');
+}
+
+function closePresetModal() {
+  document.getElementById('presetModalOverlay').classList.remove('active');
+  activePresetModalData = null;
+}
+
+function addPresetRowDOM(w='', r='', tag='Working', rpe=7) {
+  const tbody = document.getElementById('presetEditTbody');
+  const n = tbody.children.length + 1;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="set-num-cell">${n}</td>
+    <td><input type="number" class="input-field preset-w" value="${w}" placeholder="kg" /></td>
+    <td><input type="number" class="input-field preset-r" value="${r}" placeholder="reps" /></td>
+    <td>
+      <select class="set-tag preset-tag">
+        <option value="Warmup" ${tag==='Warmup'?'selected':''}>Warmup</option>
+        <option value="Working" ${tag==='Working'?'selected':''}>Working</option>
+        <option value="Drop Set" ${tag==='Drop Set'?'selected':''}>Drop Set</option>
+        <option value="Failure" ${tag==='Failure'?'selected':''}>Failure</option>
+      </select>
+    </td>
+    <td><input type="number" class="input-field preset-rpe" min="1" max="10" value="${rpe}" /></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function addPresetRow() { addPresetRowDOM(); }
+function removePresetRow() {
+  const tbody = document.getElementById('presetEditTbody');
+  if (tbody.children.length > 1) tbody.removeChild(tbody.lastElementChild);
+}
+
+function saveActivePresetModal() {
+  if (!activePresetModalData) return;
+  const { category, variationValue } = activePresetModalData;
+  const tbody = document.getElementById('presetEditTbody');
+  const sets = [];
+  tbody.querySelectorAll('tr').forEach(tr => {
+    sets.push({
+      weight: tr.querySelector('.preset-w').value === '' ? '' : parseFloat(tr.querySelector('.preset-w').value),
+      reps: tr.querySelector('.preset-r').value === '' ? '' : parseInt(tr.querySelector('.preset-r').value, 10),
+      tag: tr.querySelector('.preset-tag').value,
+      rpe: parseFloat(tr.querySelector('.preset-rpe').value) || 7
+    });
+  });
+  setPreset(category, variationValue, sets);
+  closePresetModal();
+  const ex = FLAT_EXERCISES.find(e => e.category === category);
+  if (ex) applyVariation(category, ex.prefix, variationValue, true);
+  showToast('📌 Preset updated successfully!', 'success');
 }
 
 function removeExercise(category) {
@@ -1424,6 +1527,7 @@ function renderExerciseCard(ex, idx) {
       <select class="machine-dropdown" id="${ex.category}Select" onchange="onVariationChange('${ex.category}', '${ex.prefix}', this)">
         ${options}
       </select>
+      <button class="btn-xs" style="color:var(--accent); border-color:var(--accent-glow);" onclick="openPresetModal('${ex.category}')">⚙️ Edit Preset</button>
     </div>
     <div class="ex-meta-info">
       <div class="info-row">
@@ -1874,23 +1978,6 @@ function generateShareCard(record) {
   link.href = canvas.toDataURL('image/png');
   link.click();
   showToast('📸 Shareable Workout Card downloaded!', 'success');
-}
-
-function updateCurrentDayPresets() {
-  const view = document.getElementById('view-day-' + activeDay);
-  view.querySelectorAll('.exercise-card').forEach(card => {
-    const cat = card.dataset.category;
-    const select = card.querySelector('.machine-dropdown');
-    const variation = select ? select.value : '';
-    const prefix = card.dataset.prefix;
-    const table = document.getElementById('table_' + prefix);
-    const sets = [];
-    table.querySelectorAll('tbody tr').forEach(tr => {
-      sets.push({ weight: tr.querySelector('.set-weight')?.value || '', reps: tr.querySelector('.set-reps')?.value || '', tag: tr.querySelector('.set-tag')?.value || 'Working', rpe: tr.querySelector('.set-rpe')?.value || '7', rir: tr.querySelector('.set-rir')?.value || '1' });
-    });
-    setPreset(cat, variation, sets);
-  });
-  showToast('📌 Presets updated!', 'success');
 }
 
 function resetCurrentDayForm() {
