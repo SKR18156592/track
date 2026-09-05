@@ -762,8 +762,12 @@ function updateUserSessionUI(user) {
   }
 }
 
-// Re-render analytics, history, and trackers after cloud pull (without wiping active inputs)
+// Re-render all views and trackers after cloud pull
 function refreshAllUI() {
+  FLAT_EXERCISES.forEach(ex => {
+    const sel = document.getElementById(ex.category + 'Select');
+    if (sel) applyVariation(ex.category, ex.prefix, sel.value, true);
+  });
   renderHistory();
   renderSnapshotsList();
   updateProgress();
