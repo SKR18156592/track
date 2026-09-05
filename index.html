@@ -858,7 +858,7 @@ function subscribeToRealtimeSync() {
         if (Array.isArray(payload.new.history)) setJ('iron_workout_history', payload.new.history);
         if (Array.isArray(payload.new.custom_exercises)) setJ('iron_custom_exercises', payload.new.custom_exercises);
         if (Array.isArray(payload.new.hidden_exercises)) setJ('iron_hidden_exercises', payload.new.hidden_exercises);
-        if (Array.isArray(payload.new.custom_variations)) setJ('iron_custom_variations', payload.new.custom_variations);
+        if (payload.new.custom_variations && typeof payload.new.custom_variations === 'object') setJ('iron_custom_variations', payload.new.custom_variations);
         refreshAllUI();
         showToast('📥 Live update synced!', 'info');
       }
@@ -1092,10 +1092,10 @@ function rebuildWorkoutDatabase() {
   WORKOUT = JSON.parse(JSON.stringify(WORKOUT_BASE));
   const hiddenExs = getJ('iron_hidden_exercises', []);
   const customExs = getJ('iron_custom_exercises', []);
-  const customVars = getJ('iron_custom_variations', {}); // { category: [ {value, label, setup, cue, defaultSets} ] }
-  const varOrderMap = getJ('iron_var_order', {}); // { category: [value1, value2, ...] }
+  const customVars = getJ('iron_custom_variations', {});
+  const hiddenVars = getJ('iron_hidden_variations', {});
+  const varOrderMap = getJ('iron_var_order', {});
 
-  // Inject custom exercises
   customExs.forEach(c => {
     const dayObj = WORKOUT[c.day];
     if (dayObj) {
@@ -1115,7 +1115,6 @@ function rebuildWorkoutDatabase() {
     WORKOUT[dNum].sections.forEach((sec, sIdx) => {
       sec.exercises = sec.exercises.filter(ex => !hiddenExs.includes(ex.category));
       sec.exercises.forEach(ex => {
-        // Inject user-added variations
         if (customVars[ex.category] && Array.isArray(customVars[ex.category])) {
           customVars[ex.category].forEach(v => {
             if (!ex.variations.some(existing => existing.value === v.value)) {
@@ -1123,7 +1122,9 @@ function rebuildWorkoutDatabase() {
             }
           });
         }
-        // Apply saved variation reorder
+        if (hiddenVars[ex.category] && Array.isArray(hiddenVars[ex.category])) {
+          ex.variations = ex.variations.filter(v => !hiddenVars[ex.category].includes(v.value));
+        }
         if (varOrderMap[ex.category] && Array.isArray(varOrderMap[ex.category])) {
           const order = varOrderMap[ex.category];
           ex.variations.sort((a, b) => {
@@ -1374,7 +1375,6 @@ function removeEquipment(category) {
 
   if (!confirm(`Remove variation "${varObj ? varObj.label : currentVal}"?`)) return;
 
-  // Check if it's a user-added custom variation
   const customVars = getJ('iron_custom_variations', {});
   if (customVars[category]) {
     customVars[category] = customVars[category].filter(v => v.value !== currentVal);
@@ -1382,7 +1382,6 @@ function removeEquipment(category) {
     setJ('iron_custom_variations', customVars);
   }
 
-  // Also record in hidden variations if it was a base variation
   const hiddenVars = getJ('iron_hidden_variations', {});
   if (!hiddenVars[category]) hiddenVars[category] = [];
   hiddenVars[category].push(currentVal);
