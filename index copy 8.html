@@ -165,7 +165,7 @@
     .day-view { display: none; flex-direction: column; gap: 20px; }
     .day-view.active { display: flex; animation: dayIn .4s cubic-bezier(0.16, 1, 0.3, 1); }
     @keyframes dayIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-    .category-section { display: flex; flex-direction: column; gap: 16px; margin-bottom: 12px; }
+    .category-section { display: flex; flex-direction: column; gap: 16px; }
     .category-tag { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .8px; padding: 9px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.1); width: fit-content; box-shadow: 0 4px 16px rgba(0,0,0,0.3); background: var(--accent-dim); color: var(--accent); }
 
     .exercise-card { padding: 22px; border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 16px; position: relative; }
@@ -550,16 +550,10 @@
     <form id="addExForm" onsubmit="handleSaveCustomExercise(event)" style="display: flex; flex-direction: column; gap: 14px;">
       <div class="meta-field">
         <label>Target Day</label>
-        <select id="exDay" class="machine-dropdown" style="width:100%;" onchange="updateSectionDropdown()">
+        <select id="exDay" class="machine-dropdown" style="width:100%;">
           <option value="1">Day 1: Chest • Shoulders • Biceps</option>
           <option value="2">Day 2: Legs • Calves • Core</option>
           <option value="3">Day 3: Back • Rear Delts • Triceps • Traps</option>
-        </select>
-      </div>
-      <div class="meta-field">
-        <label>Target Section</label>
-        <select id="exSectionIdx" class="machine-dropdown" style="width:100%;">
-          <!-- Populated dynamically -->
         </select>
       </div>
       <div class="meta-field">
@@ -1034,8 +1028,8 @@ function rebuildWorkoutDatabase() {
 
   customExs.forEach(c => {
     const dayObj = WORKOUT[c.day];
-    if (dayObj && dayObj.sections[c.sectionIdx]) {
-      dayObj.sections[c.sectionIdx].exercises.push({
+    if (dayObj && dayObj.sections.length > 0) {
+      dayObj.sections[0].exercises.push({
         category: c.category, prefix: c.prefix, title: c.title, target: c.target, scheme: c.scheme, rest: c.rest, exerciseType: c.exerciseType,
         variations: [{ value: 'custom_var', label: c.varLabel, setup: 'Custom setup', cue: 'Maintain form', defaultSets: [[20, 10, 2, 'Working', 7], [20, 10, 1, 'Working', 7]] }]
       });
@@ -1127,27 +1121,11 @@ function updateRestMultiplierLabel() {
   if (label) label.textContent = parseFloat(val).toFixed(2) + 'x';
 }
 
-function openAddExModal() {
-  updateSectionDropdown();
-  document.getElementById('addExModalOverlay').classList.add('active');
-}
+function openAddExModal() { document.getElementById('addExModalOverlay').classList.add('active'); }
 function closeAddExModal() { document.getElementById('addExModalOverlay').classList.remove('active'); document.getElementById('addExForm').reset(); }
-
-function updateSectionDropdown() {
-  const dayNum = parseInt(document.getElementById('exDay').value, 10);
-  const secSelect = document.getElementById('exSectionIdx');
-  if (!secSelect) return;
-  secSelect.innerHTML = '';
-  const sections = WORKOUT_BASE[dayNum].sections;
-  sections.forEach((sec, idx) => {
-    secSelect.innerHTML += `<option value="${idx}">${sec.title}</option>`;
-  });
-}
-
 function handleSaveCustomExercise(e) {
   e.preventDefault();
   const day = parseInt(document.getElementById('exDay').value, 10);
-  const sectionIdx = parseInt(document.getElementById('exSectionIdx').value, 10);
   const title = document.getElementById('exTitle').value.trim();
   const target = document.getElementById('exTarget').value.trim();
   const exerciseType = document.getElementById('exType').value;
@@ -1158,7 +1136,7 @@ function handleSaveCustomExercise(e) {
   const prefix = 'cp_' + Math.random().toString(36).substring(2, 7);
   const rest = exerciseType === 'compound' ? 150 : 75;
 
-  const newEx = { category, prefix, title, target, exerciseType, varLabel, scheme, rest, day, sectionIdx };
+  const newEx = { category, prefix, title, target, exerciseType, varLabel, scheme, rest, day };
   const customList = getJ('iron_custom_exercises', []);
   customList.push(newEx);
   setJ('iron_custom_exercises', customList);
@@ -1167,7 +1145,7 @@ function handleSaveCustomExercise(e) {
   closeAddExModal();
   rebuildWorkoutDatabase();
   renderAll();
-  switchDayView(day);
+  switchDayView(activeDay);
   showToast('✨ Custom exercise added!', 'success');
 }
 
@@ -1736,12 +1714,16 @@ function finishCurrentDayWorkout() {
   showCelebration();
 }
 
+// ==========================================
+// 4. SHAREABLE WORKOUT SUMMARY CARD GENERATOR
+// ==========================================
 function generateShareCard(record) {
   const canvas = document.createElement('canvas');
   canvas.width = 800;
   canvas.height = 1000;
   const ctx = canvas.getContext('2d');
 
+  // Cyberpunk Background Gradient
   const bgGrad = ctx.createLinearGradient(0, 0, 800, 1000);
   bgGrad.addColorStop(0, '#07080c');
   bgGrad.addColorStop(0.5, '#0f172a');
@@ -1749,16 +1731,19 @@ function generateShareCard(record) {
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, 800, 1000);
 
+  // Outer Neon Cyberpunk Border
   ctx.strokeStyle = '#00f3ff';
   ctx.lineWidth = 4;
   ctx.shadowColor = '#00f3ff';
   ctx.shadowBlur = 20;
   ctx.strokeRect(30, 30, 740, 940);
-  ctx.shadowBlur = 0;
+  ctx.shadowBlur = 0; // reset
 
+  // Inner Accent Header bar
   ctx.fillStyle = '#ff007f';
   ctx.fillRect(30, 30, 740, 8);
 
+  // App Brand Logo & Title
   ctx.fillStyle = '#00f3ff';
   ctx.font = '800 24px "Plus Jakarta Sans", sans-serif';
   ctx.fillText('⚡ IRONTRACK PRO SPLIT', 60, 90);
@@ -1767,10 +1752,12 @@ function generateShareCard(record) {
   ctx.font = '700 16px "Plus Jakarta Sans", sans-serif';
   ctx.fillText(`DATE: ${record.date}`, 60, 120);
 
+  // Main Session Title
   ctx.fillStyle = '#ffffff';
   ctx.font = '800 36px "Plus Jakarta Sans", sans-serif';
   ctx.fillText(record.dayTitle, 60, 190);
 
+  // Stats Grid Background Panels
   let totalTonnage = 0;
   let completedSets = 0;
   record.exercises.forEach(ex => {
@@ -1807,6 +1794,7 @@ function generateShareCard(record) {
   drawStatBox(60, 360, 335, 110, 'Session Duration', record.duration, '#ff007f');
   drawStatBox(405, 360, 335, 110, 'Body Weight', `${record.bodyWeight} kg`, '#fbbf24');
 
+  // Exercise Breakdown Section Header
   ctx.fillStyle = '#ffffff';
   ctx.font = '800 20px "Plus Jakarta Sans", sans-serif';
   ctx.fillText('EXERCISE BREAKDOWN', 60, 520);
@@ -1818,6 +1806,7 @@ function generateShareCard(record) {
   ctx.lineTo(740, 535);
   ctx.stroke();
 
+  // List top exercises
   let startY = 575;
   record.exercises.slice(0, 5).forEach((ex, idx) => {
     ctx.fillStyle = '#94a3b8';
@@ -1833,10 +1822,12 @@ function generateShareCard(record) {
     startY += 55;
   });
 
+  // Footer Tag
   ctx.fillStyle = '#94a3b8';
   ctx.font = '700 14px "Plus Jakarta Sans", sans-serif';
   ctx.fillText('⚡ Progress via Progressive Overload • irontrack.app', 60, 930);
 
+  // Trigger Download
   const link = document.createElement('a');
   link.download = `IronTrack_Summary_${record.date}.png`;
   link.href = canvas.toDataURL('image/png');
