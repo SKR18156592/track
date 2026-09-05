@@ -832,22 +832,12 @@ async function pullFromCloud(showIndicator = false) {
 
     if (data) {
       let updated = false;
-      if (Array.isArray(data.history)) {
-        setJ('iron_workout_history', data.history);
-        updated = true;
-      }
-      if (Array.isArray(data.custom_exercises)) {
-        setJ('iron_custom_exercises', data.custom_exercises);
-        updated = true;
-      }
-      if (Array.isArray(data.hidden_exercises)) {
-        setJ('iron_hidden_exercises', data.hidden_exercises);
-        updated = true;
-      }
-      if (data.custom_variations && typeof data.custom_variations === 'object') {
-        setJ('iron_custom_variations', data.custom_variations);
-        updated = true;
-      }
+      if (Array.isArray(data.history)) { setJ('iron_workout_history', data.history); updated = true; }
+      if (Array.isArray(data.custom_exercises)) { setJ('iron_custom_exercises', data.custom_exercises); updated = true; }
+      if (Array.isArray(data.hidden_exercises)) { setJ('iron_hidden_exercises', data.hidden_exercises); updated = true; }
+      if (data.custom_variations && typeof data.custom_variations === 'object') { setJ('iron_custom_variations', data.custom_variations); updated = true; }
+      if (data.hidden_variations && typeof data.hidden_variations === 'object') { setJ('iron_hidden_variations', data.hidden_variations); updated = true; }
+      if (data.var_order && typeof data.var_order === 'object') { setJ('iron_var_order', data.var_order); updated = true; }
       if (updated) refreshAllUI();
     } else {
       await pushToCloud();
@@ -873,6 +863,8 @@ async function pushToCloud() {
       custom_exercises: getJ('iron_custom_exercises', []),
       hidden_exercises: getJ('iron_hidden_exercises', []),
       custom_variations: getJ('iron_custom_variations', {}),
+      hidden_variations: getJ('iron_hidden_variations', {}),
+      var_order: getJ('iron_var_order', {}),
       updated_at: new Date().toISOString()
     };
 
@@ -909,6 +901,12 @@ function subscribeToRealtimeSync() {
           if (Array.isArray(payload.new.hidden_exercises)) setJ('iron_hidden_exercises', payload.new.hidden_exercises);
           if (payload.new.custom_variations && typeof payload.new.custom_variations === 'object') {
             setJ('iron_custom_variations', payload.new.custom_variations);
+          }
+          if (payload.new.hidden_variations && typeof payload.new.hidden_variations === 'object') {
+            setJ('iron_hidden_variations', payload.new.hidden_variations);
+          }
+          if (payload.new.var_order && typeof payload.new.var_order === 'object') {
+            setJ('iron_var_order', payload.new.var_order);
           }
           refreshAllUI();
           showToast('📥 Live update synced from another device!', 'info');
