@@ -440,7 +440,9 @@
 
         <div class="session-meta">
           <div class="meta-field"><label>📅 Date</label><input type="date" id="sessionDate" /></div>
-          <div class="meta-field"><label>⚖️ Weight (kg)</label><input type="number" id="bodyWeight" placeholder="72.5" step="0.1" /></div>
+          <div class="meta-field"><label>⚖️ Weight (kg)</label><input type="number" id="bodyWeight" placeholder="72.5" step="0.1" oninput="saveProfileData()" /></div>
+          <div class="meta-field"><label>📏 Height (cm)</label><input type="number" id="profileHeight" placeholder="175" step="1" oninput="saveProfileData()" /></div>
+          <div class="meta-field"><label>🎂 Age (yrs)</label><input type="number" id="profileAge" placeholder="23" step="1" oninput="saveProfileData()" /></div>
           <div class="meta-field"><label>🔥 Energy (1-10)</label><input type="number" id="energyLevel" min="1" max="10" placeholder="8" /></div>
           <div class="meta-field"><label>💤 Sleep (hrs)</label><input type="number" id="sleepHours" placeholder="7.5" step="0.5" /></div>
         </div>
@@ -470,13 +472,18 @@
             <button class="range-btn" id="dietWorkoutBtn" onclick="setDietMode('workout')">Workout Day Plan</button>
           </div>
         </div>
-        <p style="font-size:13.5px; color:var(--muted);">Preset macro plans structured for rest days (Breakfast, Shake, Lunch, Dinner) and workout days (Breakfast, Pre-workout, Post-workout, Dinner).</p>
+        <p style="font-size:13.5px; color:var(--muted);">Preset macro plans linked with your saved profile metrics (BMR, Maintenance TDEE, and BMI).</p>
         
         <div class="stat-bar" style="position:relative; top:0; margin-bottom:0;">
-          <div class="stat-pill">Calories: <strong id="dietCals">2283 kcal</strong></div>
+          <div class="stat-pill">Plan Cals: <strong id="dietCals">2283 kcal</strong></div>
           <div class="stat-pill lime">Protein: <strong id="dietProt">164.5 g</strong></div>
           <div class="stat-pill">Carbs: <strong id="dietCarbs">237.8 g</strong></div>
           <div class="stat-pill">Fat: <strong id="dietFat">72.9 g</strong></div>
+        </div>
+
+        <div class="calc-result-box" id="nutritionProfileSummaryBox" style="margin-top:6px; font-size:14px; text-align:left; padding:14px; display:flex; flex-direction:column; gap:4px;">
+          <span id="nutriBmiDisplay" style="color:var(--accent);">BMI: --</span>
+          <span id="nutriTdeeDisplay" style="color:var(--lime);">Calculated Maintenance TDEE: -- kcal/day</span>
         </div>
       </div>
 
@@ -535,6 +542,7 @@
           </select>
         </div>
         <div class="calc-result-box" id="calcTdeeResult" style="color:var(--lime);">BMR: 0 kcal | Maintenance TDEE: 0 kcal</div>
+        <button class="btn btn-primary" onclick="syncCalculatorToProfile()" style="justify-content:center; margin-top:4px;">💾 Save Height, Age &amp; Weight to Profile</button>
       </div>
 
       <div class="calc-box">
@@ -883,6 +891,25 @@ function renderNutritionPlan() {
   document.getElementById('dietProt').textContent = plan.prot + ' g';
   document.getElementById('dietCarbs').textContent = plan.carbs + ' g';
   document.getElementById('dietFat').textContent = plan.fat + ' g';
+
+  // Load and render saved profile data into Nutrition View summary
+  const weight = parseFloat(getL('iron_profile_weight', '72.5'));
+  const height = parseFloat(getL('iron_profile_height', '175'));
+  const age = parseFloat(getL('iron_profile_age', '23'));
+  const sex = getL('iron_profile_sex', 'male');
+
+  if (weight > 0 && height > 0) {
+    const heightM = height / 100;
+    const bmi = weight / (heightM * heightM);
+    document.getElementById('nutriBmiDisplay').textContent = `BMI: ${bmi.toFixed(1)} (${bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese'})`;
+  }
+
+  if (age > 0 && weight > 0 && height > 0) {
+    let bmr = (10 * weight) + (6.25 * height) - (5 * age);
+    bmr += (sex === 'male') ? 5 : -161;
+    const tdee = bmr * 1.55; // Moderate multiplier default
+    document.getElementById('nutriTdeeDisplay').textContent = `Calculated Maintenance TDEE: ~${tdee.toFixed(0)} kcal/day (BMR: ${bmr.toFixed(0)})`;
+  }
 
   const container = document.getElementById('nutritionMealsContainer');
   if (!container) return;
@@ -2156,6 +2183,9 @@ function showTab(tab) {
     renderSnapshotsList();
   } else if (tab === 'nutrition') {
     renderNutritionPlan();
+  } else if (tab === 'tools') {
+    loadProfileToCalculator();
+    computeTDEE();
   }
 }
 
@@ -2461,8 +2491,52 @@ function resetCurrentDayForm() {
 }
 
 // ==========================================
-// MAINTENANCE CALORIE & TDEE CALCULATOR (Mifflin-St Jeor)
+// PROFILE & TDEE / MAINTENANCE CALCULATOR
 // ==========================================
+function saveProfileData() {
+  setL('iron_profile_weight', document.getElementById('bodyWeight').value);
+  setL('iron_profile_height', document.getElementById('profileHeight').value);
+  setL('iron_profile_age', document.getElementById('profileAge').value);
+}
+
+function loadProfileData() {
+  const w = getL('iron_profile_weight', '72.5');
+  const h = getL('iron_profile_height', '175');
+  const a = getL('iron_profile_age', '23');
+
+  if (document.getElementById('bodyWeight')) document.getElementById('bodyWeight').value = w;
+  if (document.getElementById('profileHeight')) document.getElementById('profileHeight').value = h;
+  if (document.getElementById('profileAge')) document.getElementById('profileAge').value = a;
+
+  if (document.getElementById('calcWeight')) document.getElementById('calcWeight').value = w;
+  if (document.getElementById('calcHeight')) document.getElementById('calcHeight').value = h;
+  if (document.getElementById('calcAge')) document.getElementById('calcAge').value = a;
+}
+
+function loadProfileToCalculator() {
+  loadProfileData();
+  computeTDEE();
+}
+
+function syncCalculatorToProfile() {
+  const w = document.getElementById('calcWeight').value;
+  const h = document.getElementById('calcHeight').value;
+  const a = document.getElementById('calcAge').value;
+  const sex = document.getElementById('calcSex').value;
+
+  setL('iron_profile_weight', w);
+  setL('iron_profile_height', h);
+  setL('iron_profile_age', a);
+  setL('iron_profile_sex', sex);
+
+  if (document.getElementById('bodyWeight')) document.getElementById('bodyWeight').value = w;
+  if (document.getElementById('profileHeight')) document.getElementById('profileHeight').value = h;
+  if (document.getElementById('profileAge')) document.getElementById('profileAge').value = a;
+
+  showToast('💾 Height, Age & Weight saved to your profile!', 'success');
+  renderNutritionPlan();
+}
+
 function computeTDEE() {
   const sex = document.getElementById('calcSex').value;
   const age = parseFloat(document.getElementById('calcAge').value) || 0;
@@ -2472,7 +2546,6 @@ function computeTDEE() {
   const res = document.getElementById('calcTdeeResult');
 
   if (age > 0 && weight > 0 && height > 0) {
-    // Mifflin-St Jeor formula: BMR = 10 * weight(kg) + 6.25 * height(cm) - 5 * age(y) + constant (+5 for male, -161 for female)
     let bmr = (10 * weight) + (6.25 * height) - (5 * age);
     bmr += (sex === 'male') ? 5 : -161;
     const tdee = bmr * activity;
@@ -2667,6 +2740,7 @@ function fireConfetti(opts) {
 
 function init() {
   loadSettings();
+  loadProfileData();
   rebuildWorkoutDatabase();
   renderAll();
   renderNutritionPlan();
