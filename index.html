@@ -460,7 +460,7 @@
       </div>
     </section>
 
-    <!-- NEW NUTRITION VIEW -->
+    <!-- NUTRITION VIEW -->
     <section id="view-nutrition" class="app-view">
       <div class="nutrition-card">
         <div class="analytics-header" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
@@ -507,6 +507,36 @@
     </section>
 
     <section id="view-tools" class="app-view">
+      <div class="calc-box">
+        <strong style="color:var(--accent)">🔥 Maintenance Calories &amp; TDEE Calculator (Mifflin-St Jeor)</strong>
+        <p style="font-size:12.5px; color:var(--muted);">Estimate your exact Basal Metabolic Rate (BMR) and Total Daily Energy Expenditure (TDEE).</p>
+        <div class="calc-row">
+          <div class="meta-field">
+            <label>Biological Sex</label>
+            <select id="calcSex" class="machine-dropdown" style="width:100%;" onchange="computeTDEE()">
+              <option value="male">Male (+5)</option>
+              <option value="female">Female (-161)</option>
+            </select>
+          </div>
+          <div class="meta-field"><label>Age (years)</label><input type="number" id="calcAge" placeholder="23" value="23" oninput="computeTDEE()"></div>
+        </div>
+        <div class="calc-row">
+          <div class="meta-field"><label>Weight (kg)</label><input type="number" id="calcWeight" placeholder="72.5" value="72.5" step="0.1" oninput="computeTDEE()"></div>
+          <div class="meta-field"><label>Height (cm)</label><input type="number" id="calcHeight" placeholder="175" value="175" oninput="computeTDEE()"></div>
+        </div>
+        <div class="meta-field">
+          <label>Activity Multiplier (TDEE Factor)</label>
+          <select id="calcActivity" class="machine-dropdown" style="width:100%;" onchange="computeTDEE()">
+            <option value="1.2">Sedentary (Desk job, little exercise) [1.2]</option>
+            <option value="1.375">Lightly Active (1–3 days/week) [1.375]</option>
+            <option value="1.55" selected>Moderately Active (3–5 days/week) [1.55]</option>
+            <option value="1.725">Very Active (6–7 days/week hard training) [1.725]</option>
+            <option value="1.9">Extremely Active (Athlete / Physical job) [1.9]</option>
+          </select>
+        </div>
+        <div class="calc-result-box" id="calcTdeeResult" style="color:var(--lime);">BMR: 0 kcal | Maintenance TDEE: 0 kcal</div>
+      </div>
+
       <div class="calc-box">
         <strong style="color:var(--accent)">One Rep Max (Epley Formula)</strong>
         <div class="calc-row">
@@ -865,7 +895,6 @@ function renderNutritionPlan() {
       </div>
       <div class="food-grid">
         ${meal.items.map(item => {
-          // Calculate relative macro bar widths based on weight/ratios
           const totalMacros = (item.p || 0) + (item.c || 0) + (item.f || 0) || 1;
           const pPct = Math.round(((item.p || 0) / totalMacros) * 100);
           const cPct = Math.round(((item.c || 0) / totalMacros) * 100);
@@ -2431,6 +2460,28 @@ function resetCurrentDayForm() {
   showToast('🔄 Day reset to saved presets!', 'info');
 }
 
+// ==========================================
+// MAINTENANCE CALORIE & TDEE CALCULATOR (Mifflin-St Jeor)
+// ==========================================
+function computeTDEE() {
+  const sex = document.getElementById('calcSex').value;
+  const age = parseFloat(document.getElementById('calcAge').value) || 0;
+  const weight = parseFloat(document.getElementById('calcWeight').value) || 0;
+  const height = parseFloat(document.getElementById('calcHeight').value) || 0;
+  const activity = parseFloat(document.getElementById('calcActivity').value) || 1.2;
+  const res = document.getElementById('calcTdeeResult');
+
+  if (age > 0 && weight > 0 && height > 0) {
+    // Mifflin-St Jeor formula: BMR = 10 * weight(kg) + 6.25 * height(cm) - 5 * age(y) + constant (+5 for male, -161 for female)
+    let bmr = (10 * weight) + (6.25 * height) - (5 * age);
+    bmr += (sex === 'male') ? 5 : -161;
+    const tdee = bmr * activity;
+    res.textContent = `BMR: ${bmr.toFixed(0)} kcal | Maintenance TDEE: ${tdee.toFixed(0)} kcal`;
+  } else {
+    res.textContent = `BMR: 0 kcal | Maintenance TDEE: 0 kcal`;
+  }
+}
+
 function compute1RM() {
   const w = parseFloat(document.getElementById('calc1rmWeight').value) || 0;
   const r = parseFloat(document.getElementById('calc1rmReps').value) || 0;
@@ -2619,6 +2670,7 @@ function init() {
   rebuildWorkoutDatabase();
   renderAll();
   renderNutritionPlan();
+  computeTDEE();
   highlightCurrentWeekDay();
   document.getElementById('sessionDate').valueAsDate = new Date();
 
