@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0a0a0f" />
-  <meta name="description" content="IronTrack PRO SPLIT - Progressive overload workout tracker & nutrition planner" />
+  <meta name="description" content="IronTrack PRO SPLIT - Progressive overload workout tracker" />
   <title>IronTrack • Ultimate Workout Hub</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -103,7 +103,7 @@
     .app-view.active { display: flex; animation: viewIn .4s cubic-bezier(0.16, 1, 0.3, 1); }
     @keyframes viewIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 
-    .schedule-card, .header-card, .exercise-card, .modal-content, .rest-modal, .log-item, .heatmap-card, .calc-box, .settings-card, .placeholder-card, .stat-bar, .nutrition-card {
+    .schedule-card, .header-card, .exercise-card, .modal-content, .rest-modal, .log-item, .heatmap-card, .calc-box, .settings-card, .placeholder-card, .stat-bar {
       background: var(--card);
       border: 1px solid var(--card-border);
       border-radius: var(--radius-md);
@@ -111,7 +111,7 @@
       box-shadow: 0 16px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
       transition: border-color .25s ease, box-shadow .25s ease;
     }
-    .exercise-card:hover, .calc-box:hover, .analytics-card:hover, .settings-card:hover, .nutrition-card:hover {
+    .exercise-card:hover, .calc-box:hover, .analytics-card:hover, .settings-card:hover {
       border-color: var(--accent-glow);
       box-shadow: 0 20px 50px rgba(0,0,0,0.55), 0 0 20px var(--accent-dim);
     }
@@ -256,7 +256,7 @@
     .modal-body { display: flex; flex-direction: column; gap: 18px; }
     .modal-footer { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
 
-    .calc-box, .settings-card, .placeholder-card, .nutrition-card { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+    .calc-box, .settings-card, .placeholder-card { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
     .calc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .calc-result-box { background: rgba(10, 15, 28, 0.7); border: 1px solid rgba(255,255,255,0.1); padding: 16px; border-radius: var(--radius-sm); text-align: center; font-size: 17px; font-weight: 800; color: var(--accent); box-shadow: inset 0 2px 6px rgba(0,0,0,0.3); }
     .plate-breakdown { font-size: 12.5px; color: #cbd5e1; line-height: 1.6; text-align: center; }
@@ -281,8 +281,8 @@
 
     .bottom-nav {
       position: fixed; bottom: 0; left: 0; right: 0;
-      display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
-      padding: 12px 14px 22px; z-index: 90;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+      padding: 12px 18px 22px; z-index: 90;
       background: var(--panel); backdrop-filter: blur(20px);
       border-top: 1px solid rgba(255,255,255,0.1);
       box-shadow: 0 -10px 40px rgba(0,0,0,0.6);
@@ -290,13 +290,13 @@
     .bottom-tab {
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
       background: transparent; color: var(--muted); border: 1px solid transparent;
-      border-radius: var(--radius-sm); padding: 10px 4px; font-size: 9.5px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: .4px; cursor: pointer;
+      border-radius: var(--radius-sm); padding: 10px 6px; font-size: 10.5px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .6px; cursor: pointer;
       transition: all .25s ease; min-height: 60px;
     }
     .bottom-tab:hover { color: #fff; background: rgba(255,255,255,0.04); }
     .bottom-tab.active { color: var(--accent); background: var(--accent-dim); border-color: var(--accent-glow); box-shadow: 0 0 20px var(--accent-glow); }
-    .bottom-tab-icon { font-size: 20px; transition: all .25s; }
+    .bottom-tab-icon { font-size: 22px; transition: all .25s; }
     .bottom-tab.active .bottom-tab-icon { text-shadow: 0 0 16px var(--accent-glow); transform: scale(1.15); }
 
     /* Analytics */
@@ -336,23 +336,6 @@
     .snapshot-item { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 14px; border-radius: var(--radius-sm); background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.07); }
     .snapshot-actions { display: flex; gap: 8px; }
     .settings-file { color: var(--text); background: rgba(15,23,42,0.7); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-sm); padding: 10px; font-size: 13.5px; width: 100%; cursor: pointer; }
-    
-    /* Enhanced Visual Nutrition Styles */
-    .meal-box { background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-md); padding: 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); transition: border-color .2s ease; }
-    .meal-box:hover { border-color: var(--accent-glow); }
-    .meal-header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px; flex-wrap: wrap; gap: 8px; }
-    .meal-title { font-size: 16px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; }
-    .meal-badge-summary { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; background: var(--accent-dim); color: var(--accent); padding: 5px 12px; border-radius: 999px; border: 1px solid var(--accent-glow); }
-    .food-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
-    .food-card { background: rgba(10, 15, 28, 0.85); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 14px; display: flex; flex-direction: column; gap: 8px; transition: transform .2s ease, border-color .2s ease; }
-    .food-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.18); }
-    .food-name { font-size: 13.5px; font-weight: 700; color: #f8fafc; }
-    .food-metrics-row { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; font-family: 'JetBrains Mono', monospace; color: var(--muted); }
-    .food-cals { color: var(--accent); font-weight: 700; }
-    .macro-bar-container { display: flex; gap: 4px; height: 6px; width: 100%; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; margin-top: 4px; }
-    .macro-fill-p { background: var(--lime); height: 100%; border-radius: 999px; }
-    .macro-fill-c { background: var(--accent); height: 100%; border-radius: 999px; }
-    .macro-fill-f { background: #fbbf24; height: 100%; border-radius: 999px; }
   </style>
 </head>
 <body>
@@ -366,7 +349,7 @@
       <span class="brand-badge">CLOUD SYNC</span>
     </div>
     <h2 id="authTitle" style="font-size: 22px; font-weight: 800;">Sign In</h2>
-    <p style="font-size: 13.5px; color: var(--muted); margin-bottom: 16px;">Sync your workouts & nutrition seamlessly.</p>
+    <p style="font-size: 13.5px; color: var(--muted); margin-bottom: 16px;">Sync your workouts seamlessly across phone and computer.</p>
     
     <form id="authForm" onsubmit="handleAuthSubmit(event)" style="display: flex; flex-direction: column; gap: 12px;">
       <input type="email" id="authEmail" class="input-field" placeholder="Email address" autocomplete="off" required style="padding: 13px; font-size: 14px; text-align: left;" />
@@ -460,31 +443,6 @@
       </div>
     </section>
 
-    <!-- NEW NUTRITION VIEW -->
-    <section id="view-nutrition" class="app-view">
-      <div class="nutrition-card">
-        <div class="analytics-header" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-          <span>🥗 Nutrition &amp; Meal Planner</span>
-          <div class="range-toggle">
-            <button class="range-btn active" id="dietRestBtn" onclick="setDietMode('rest')">Rest Day Plan</button>
-            <button class="range-btn" id="dietWorkoutBtn" onclick="setDietMode('workout')">Workout Day Plan</button>
-          </div>
-        </div>
-        <p style="font-size:13.5px; color:var(--muted);">Preset macro plans structured for rest days (Breakfast, Shake, Lunch, Dinner) and workout days (Breakfast, Pre-workout, Post-workout, Dinner).</p>
-        
-        <div class="stat-bar" style="position:relative; top:0; margin-bottom:0;">
-          <div class="stat-pill">Calories: <strong id="dietCals">2283 kcal</strong></div>
-          <div class="stat-pill lime">Protein: <strong id="dietProt">164.5 g</strong></div>
-          <div class="stat-pill">Carbs: <strong id="dietCarbs">237.8 g</strong></div>
-          <div class="stat-pill">Fat: <strong id="dietFat">72.9 g</strong></div>
-        </div>
-      </div>
-
-      <div id="nutritionMealsContainer" style="display:flex; flex-direction:column; gap:16px;">
-        <!-- Populated dynamically -->
-      </div>
-    </section>
-
     <section id="view-analytics" class="app-view">
       <div class="analytics-card">
         <div class="analytics-header">📊 Muscle Group Tonnage</div>
@@ -568,7 +526,6 @@
 
 <nav class="bottom-nav" id="bottomNav">
   <button class="bottom-tab active" data-tab="workout"><span class="bottom-tab-icon">⚡</span><span>Workout</span></button>
-  <button class="bottom-tab" data-tab="nutrition"><span class="bottom-tab-icon">🥗</span><span>Nutrition</span></button>
   <button class="bottom-tab" data-tab="analytics"><span class="bottom-tab-icon">📊</span><span>Analytics</span></button>
   <button class="bottom-tab" data-tab="tools"><span class="bottom-tab-icon">🧮</span><span>Tools</span></button>
   <button class="bottom-tab" data-tab="settings"><span class="bottom-tab-icon">⚙️</span><span>Settings</span></button>
@@ -729,166 +686,6 @@ try {
 let isSignUpMode = false;
 let currentUser = null;
 let syncChannel = null;
-
-// ==========================================
-// NUTRITION DIET DATA (Rest vs Workout Days)
-// ==========================================
-const NUTRITION_PLANS = {
-  rest: {
-    cals: 2283, prot: 164.5, carbs: 237.8, fat: 72.9,
-    meals: [
-      {
-        title: '🌅 Breakfast',
-        summary: '511 kcal • 41.9g Protein',
-        items: [
-          { name: 'Chicken Breast Meat (100g)', cals: 110, p: 23.1, c: 0, f: 1.2 },
-          { name: 'Extra Virgin Olive Oil (3g)', cals: 27, p: 0, c: 0, f: 3 },
-          { name: 'Bananas (2 small)', cals: 180, p: 2.2, c: 46.1, f: 0.7 },
-          { name: 'Egg Whole (3 medium)', cals: 194, p: 16.6, c: 1.0, f: 13.1 }
-        ]
-      },
-      {
-        title: '🥤 Shake / Supplements',
-        summary: '523 kcal • 34.7g Protein',
-        items: [
-          { name: 'Coffee Instant Powder (10g)', cals: 24, p: 1.2, c: 4.1, f: 0.1 },
-          { name: 'Flax Seeds (5g)', cals: 27, p: 0.9, c: 1.4, f: 2.1 },
-          { name: 'Pumpkin Seeds (5g)', cals: 27, p: 1.2, c: 0.9, f: 2.3 },
-          { name: 'Almonds (10g)', cals: 58, p: 2.1, c: 2.0, f: 5.1 },
-          { name: 'Walnuts (10g)', cals: 65, p: 1.5, c: 1.4, f: 6.5 },
-          { name: 'Quaker Rolled Oats (50g)', cals: 204, p: 5.9, c: 34.3, f: 4.8 },
-          { name: 'NAKPRO Whey Gold (30g)', cals: 118, p: 21.8, c: 3.8, f: 1.7 }
-        ]
-      },
-      {
-        title: '🍽️ Lunch',
-        summary: '708 kcal • 62.2g Protein',
-        items: [
-          { name: 'Ghee (3g)', cals: 25, p: 0, c: 0, f: 2.9 },
-          { name: 'Chicken Breast Meat (200g)', cals: 220, p: 46.2, c: 0, f: 2.5 },
-          { name: 'Homemade Dal Yellow (75g)', cals: 62, p: 4.3, c: 8.6, f: 1.2 },
-          { name: 'Amul Curd (150g)', cals: 92, p: 5.3, c: 6.0, f: 4.7 },
-          { name: 'Chia Seeds (10g)', cals: 49, p: 1.7, c: 4.2, f: 3.1 },
-          { name: 'White Rice Cooked (200g)', cals: 260, p: 4.8, c: 57.2, f: 0.4 }
-        ]
-      },
-      {
-        title: '🌙 Dinner',
-        summary: '541 kcal • 25.7g Protein',
-        items: [
-          { name: 'Ghee (3g)', cals: 25, p: 0, c: 0, f: 2.9 },
-          { name: 'Homemade Dal Yellow (75g)', cals: 62, p: 4.3, c: 8.6, f: 1.2 },
-          { name: 'White Rice Cooked (200g)', cals: 260, p: 4.8, c: 57.2, f: 0.4 },
-          { name: 'Egg Whole (3 medium)', cals: 194, p: 16.6, c: 1.0, f: 13.1 }
-        ]
-      }
-    ]
-  },
-  workout: {
-    cals: 2537, prot: 171.7, carbs: 286.9, fat: 77.4,
-    meals: [
-      {
-        title: '🌅 Breakfast',
-        summary: '614 kcal • 43.7g Protein',
-        items: [
-          { name: 'Boiled Potato (100g)', cals: 103, p: 1.8, c: 19.5, f: 2.2 },
-          { name: 'Chicken Breast Meat (100g)', cals: 110, p: 23.1, c: 0, f: 1.2 },
-          { name: 'Extra Virgin Olive Oil (3g)', cals: 27, p: 0, c: 0, f: 3 },
-          { name: 'Banana (2 small)', cals: 180, p: 2.2, c: 46.1, f: 0.7 },
-          { name: 'Egg Whole (3 medium)', cals: 194, p: 16.6, c: 1.0, f: 13.1 }
-        ]
-      },
-      {
-        title: '⚡ Pre-Workout Meal',
-        summary: '379 kcal • 12.6g Protein',
-        items: [
-          { name: 'Lion Dates (20g)', cals: 56, p: 0.5, c: 15.0, f: 0.1 },
-          { name: 'Beetroot (100g)', cals: 43, p: 1.6, c: 9.6, f: 0.2 },
-          { name: 'Quaker Rolled Oats (50g)', cals: 204, p: 5.9, c: 34.3, f: 4.8 },
-          { name: 'Milk (100ml)', cals: 52, p: 3.4, c: 4.9, f: 2.1 },
-          { name: 'Coffee Instant Powder (10g)', cals: 24, p: 1.2, c: 4.1, f: 0.1 }
-        ]
-      },
-      {
-        title: '💪 Post-Workout Meal',
-        summary: '826 kcal • 83.9g Protein',
-        items: [
-          { name: 'Ghee (3g)', cals: 25, p: 0, c: 0, f: 2.9 },
-          { name: 'Chicken Breast Meat (200g)', cals: 220, p: 46.2, c: 0, f: 2.5 },
-          { name: 'NAKPRO Whey Gold (30g)', cals: 118, p: 21.8, c: 3.8, f: 1.7 },
-          { name: 'Homemade Dal Yellow (75g)', cals: 62, p: 4.3, c: 8.6, f: 1.2 },
-          { name: 'Amul Curd (150g)', cals: 92, p: 5.3, c: 6.0, f: 4.7 },
-          { name: 'Chia Seeds (10g)', cals: 49, p: 1.6, c: 4.4, f: 3.1 },
-          { name: 'White Rice Cooked (200g)', cals: 260, p: 4.8, c: 57.2, f: 0.4 }
-        ]
-      },
-      {
-        title: '🌙 Dinner',
-        summary: '718 kcal • 31.5g Protein',
-        items: [
-          { name: 'Pumpkin Seeds (5g)', cals: 27, p: 1.2, c: 0.9, f: 2.3 },
-          { name: 'Almonds (10g)', cals: 58, p: 2.1, c: 2.0, f: 5.1 },
-          { name: 'Flax Seeds (5g) & Walnuts (10g)', cals: 92, p: 2.4, c: 2.8, f: 8.6 },
-          { name: 'Ghee (3g)', cals: 25, p: 0, c: 0, f: 2.9 },
-          { name: 'Homemade Dal Yellow (75g)', cals: 62, p: 4.3, c: 8.6, f: 1.2 },
-          { name: 'Egg Whole (3 medium)', cals: 194, p: 16.6, c: 1.0, f: 13.1 },
-          { name: 'White Rice Cooked (200g)', cals: 260, p: 4.8, c: 57.2, f: 0.4 }
-        ]
-      }
-    ]
-  }
-};
-
-let currentDietMode = 'rest';
-function setDietMode(mode) {
-  currentDietMode = mode;
-  document.getElementById('dietRestBtn').classList.toggle('active', mode === 'rest');
-  document.getElementById('dietWorkoutBtn').classList.toggle('active', mode === 'workout');
-  renderNutritionPlan();
-}
-
-function renderNutritionPlan() {
-  const plan = NUTRITION_PLANS[currentDietMode];
-  document.getElementById('dietCals').textContent = plan.cals + ' kcal';
-  document.getElementById('dietProt').textContent = plan.prot + ' g';
-  document.getElementById('dietCarbs').textContent = plan.carbs + ' g';
-  document.getElementById('dietFat').textContent = plan.fat + ' g';
-
-  const container = document.getElementById('nutritionMealsContainer');
-  if (!container) return;
-  
-  container.innerHTML = plan.meals.map(meal => `
-    <div class="meal-box">
-      <div class="meal-header-row">
-        <div class="meal-title">${meal.title}</div>
-        <div class="meal-badge-summary">${meal.summary}</div>
-      </div>
-      <div class="food-grid">
-        ${meal.items.map(item => {
-          // Calculate relative macro bar widths based on weight/ratios
-          const totalMacros = (item.p || 0) + (item.c || 0) + (item.f || 0) || 1;
-          const pPct = Math.round(((item.p || 0) / totalMacros) * 100);
-          const cPct = Math.round(((item.c || 0) / totalMacros) * 100);
-          const fPct = Math.max(0, 100 - pPct - cPct);
-          return `
-            <div class="food-card">
-              <div class="food-name">${item.name}</div>
-              <div class="food-metrics-row">
-                <span class="food-cals">${item.cals} kcal</span>
-                <span>P:${item.p}g | C:${item.c}g | F:${item.f}g</span>
-              </div>
-              <div class="macro-bar-container" title="Protein / Carbs / Fat Distribution">
-                <div class="macro-fill-p" style="width: ${pPct}%"></div>
-                <div class="macro-fill-c" style="width: ${cPct}%"></div>
-                <div class="macro-fill-f" style="width: ${fPct}%"></div>
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    </div>
-  `).join('');
-}
 
 // ==========================================
 // TOAST NOTIFICATIONS & NETWORK TRACKER
@@ -1920,6 +1717,7 @@ function renderExerciseCard(ex, idx) {
   const firstVar = ex.variations[0];
   const options = ex.variations.map(v => `<option value="${v.value}">${v.label}</option>`).join('');
   
+  // Respect remembered choice or fallback to default priority (first variation)
   const savedChoice = getChoice(ex.category);
   const activeVarVal = (savedChoice && ex.variations.some(v => v.value === savedChoice)) ? savedChoice : firstVar.value;
   const activeVarObj = ex.variations.find(v => v.value === activeVarVal) || firstVar;
@@ -2125,8 +1923,6 @@ function showTab(tab) {
     render1RMTrends();
   } else if (tab === 'settings') {
     renderSnapshotsList();
-  } else if (tab === 'nutrition') {
-    renderNutritionPlan();
   }
 }
 
@@ -2618,7 +2414,6 @@ function init() {
   loadSettings();
   rebuildWorkoutDatabase();
   renderAll();
-  renderNutritionPlan();
   highlightCurrentWeekDay();
   document.getElementById('sessionDate').valueAsDate = new Date();
 
@@ -2629,6 +2424,7 @@ function init() {
     const sel = document.getElementById(ex.category + 'Select');
     if (!sel) return;
     
+    // Check saved choice or last session choice, fallback to first item (default priority)
     let val = getChoice(ex.category);
     if (!val || !ex.variations.some(v => v.value === val)) {
       const history = getJ('iron_workout_history', []);
