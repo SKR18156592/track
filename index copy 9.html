@@ -1267,26 +1267,7 @@ const choiceKey = (cat) => 'iron_choice_master_' + cat;
 const presetKey = (cat, varValue) => 'iron_preset_' + cat + '_' + varValue;
 function getChoice(cat) { return getL(choiceKey(cat)); }
 function setChoice(cat, val) { setL(choiceKey(cat), val); }
-
-// Modified getPreset to always fall back to the dynamic code default if no saved preset exists
-function getPreset(cat, val) {
-  const customStored = getJ(presetKey(cat, val));
-  if (customStored && customStored.length) return customStored;
-
-  // Fallback to the default sets defined in the WORKOUT_BASE database
-  for (const dNum of [1, 2, 3]) {
-    for (const sec of WORKOUT_BASE[dNum].sections) {
-      for (const ex of sec.exercises) {
-        if (ex.category === cat) {
-          const varObj = ex.variations.find(v => v.value === val) || ex.variations[0];
-          if (varObj && varObj.defaultSets) return varObj.defaultSets;
-        }
-      }
-    }
-  }
-  return null;
-}
-
+function getPreset(cat, val) { return getJ(presetKey(cat, val)); }
 function setPreset(cat, val, sets) { setJ(presetKey(cat, val), sets); }
 
 function haptic(ms=15) {
@@ -1482,7 +1463,8 @@ function openPresetModal(category) {
   activePresetModalData = { category, variationValue };
   document.getElementById('presetModalTitle').textContent = `⚙️ Edit Preset: ${ex.title} (${varObj.label})`;
 
-  const sets = getPreset(category, variationValue) || varObj.defaultSets;
+  const stored = getPreset(category, variationValue);
+  const sets = (stored && stored.length) ? stored : varObj.defaultSets;
 
   const tbody = document.getElementById('presetEditTbody');
   tbody.innerHTML = '';
@@ -1757,7 +1739,7 @@ function toggleSuperset(category) {
 function renderExerciseCard(ex, idx) {
   const firstVar = ex.variations[0];
   const options = ex.variations.map(v => `<option value="${v.value}">${v.label}</option>`).join('');
-  const sets = getPreset(ex.category, firstVar.value) || firstVar.defaultSets;
+  const sets = firstVar.defaultSets;
   const dec = getSupersetDecorations(ex.category);
   const supBtn = getSupersetBtn(ex.category);
 
@@ -1854,8 +1836,9 @@ function applyVariation(category, prefix, variation, fillRows=true) {
     }
   }
 
-  const storedSets = getPreset(category, variation);
-  let sourceSets = (storedSets && storedSets.length) ? storedSets : varObj.defaultSets;
+  const stored = getPreset(category, variation);
+  const defaultSets = varObj.defaultSets;
+  let sourceSets = (stored && stored.length) ? stored : defaultSets;
   let sourceLabel = 'Preset';
   const ghost = findLastMatchingSets(ex, varObj);
   if (ghost && ghost.length) { sourceSets = ghost; sourceLabel = 'Last'; }
