@@ -1717,7 +1717,7 @@ function renderExerciseCard(ex, idx) {
   const firstVar = ex.variations[0];
   const options = ex.variations.map(v => `<option value="${v.value}">${v.label}</option>`).join('');
   
-  // Respect remembered choice or fallback to default priority (first variation)
+  // Resolve active variation and prioritize preset immediately during card construction
   const savedChoice = getChoice(ex.category);
   const activeVarVal = (savedChoice && ex.variations.some(v => v.value === savedChoice)) ? savedChoice : firstVar.value;
   const activeVarObj = ex.variations.find(v => v.value === activeVarVal) || firstVar;
@@ -1820,6 +1820,7 @@ function applyVariation(category, prefix, variation, fillRows=true) {
     }
   }
 
+  // FORCE STRICT PRESET RETRIEVAL
   const storedPreset = getPreset(category, variation);
   const defaultSets = varObj.defaultSets;
   let sourceSets = (storedPreset && storedPreset.length) ? storedPreset : defaultSets;
@@ -2423,26 +2424,8 @@ function init() {
   FLAT_EXERCISES.forEach(ex => {
     const sel = document.getElementById(ex.category + 'Select');
     if (!sel) return;
-    
-    // Check saved choice or last session choice, fallback to first item (default priority)
-    let val = getChoice(ex.category);
-    if (!val || !ex.variations.some(v => v.value === val)) {
-      const history = getJ('iron_workout_history', []);
-      let foundLastVar = null;
-      for (const rec of history) {
-        if (!rec.exercises) continue;
-        for (const exRec of rec.exercises) {
-          if (exRec.category === ex.category && exRec.variationValue) {
-            foundLastVar = exRec.variationValue;
-            break;
-          }
-        }
-        if (foundLastVar) break;
-      }
-      val = (foundLastVar && ex.variations.some(v => v.value === foundLastVar)) ? foundLastVar : ex.variations[0].value;
-      setChoice(ex.category, val);
-    }
-
+    const saved = getChoice(ex.category);
+    const val = saved && ex.variations.some(v => v.value === saved) ? saved : ex.variations[0].value;
     sel.value = val;
     applyVariation(ex.category, ex.prefix, val, true);
   });
