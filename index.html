@@ -83,7 +83,7 @@
     @keyframes pulseBolt { 0%, 100% { transform: scale(1); text-shadow: 0 0 15px var(--accent-glow); } 50% { transform: scale(1.08); text-shadow: 0 0 25px var(--accent-glow); } }
     .brand-badge { font-size: 11px; font-weight: 700; background: var(--accent-dim); color: var(--accent); padding: 5px 10px; border-radius: 8px; border: 1px solid var(--accent-glow); letter-spacing: 0.5px; }
 
-    .user-auth-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    .user-auth-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 
     .toast-container { position: fixed; bottom: 94px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 1000; pointer-events: none; width: 90%; max-width: 380px; align-items: center; }
     .toast { background: var(--card-solid); border: 1px solid var(--card-border); color: var(--text); padding: 14px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; box-shadow: 0 16px 40px rgba(0,0,0,0.6); opacity: 0; transform: translateY(20px); transition: all .35s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: auto; backdrop-filter: blur(16px); text-align: center; width: 100%; }
@@ -92,10 +92,10 @@
     .toast.error { border-color: var(--coral); color: #fca5a5; box-shadow: 0 0 24px var(--coral-glow); }
     .toast.info { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 24px var(--accent-glow); }
 
-    .net-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 8px; background: rgba(15,23,42,0.85); border: 1px solid rgba(255,255,255,0.08); }
-    .net-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-    .net-status.online .net-dot { background: var(--lime); box-shadow: 0 0 10px var(--lime-glow); }
-    .net-status.offline .net-dot { background: var(--coral); box-shadow: 0 0 10px var(--coral-glow); }
+    .net-status { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(15,23,42,0.85); border: 1px solid rgba(255,255,255,0.08); }
+    .net-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .net-status.online .net-dot { background: var(--lime); box-shadow: 0 0 12px var(--lime-glow); }
+    .net-status.offline .net-dot { background: var(--coral); box-shadow: 0 0 12px var(--coral-glow); }
 
     .app-views { position: relative; }
     .app-view { display: none; flex-direction: column; gap: 20px; }
@@ -396,7 +396,7 @@
       <span class="brand-badge">PRO SPLIT</span>
     </div>
     <div class="user-auth-bar" id="userBar">
-      <div class="net-status online" id="netStatus"><span class="net-dot"></span><span id="netText">Online</span></div>
+      <div class="net-status online" id="netStatus" title="Connection Active"><span class="net-dot"></span></div>
       <button class="btn-xs" id="manualSyncBtn" onclick="pullFromCloud(true)" style="color: var(--accent); border-color: var(--accent-glow);">☁️ Sync</button>
       <button class="btn-xs" id="profileToggleBtn" onclick="toggleProfileTab()" style="color: var(--accent); border-color: var(--accent-glow); display: inline-flex; align-items: center; gap: 4px;">👤 Profile</button>
     </div>
@@ -1041,15 +1041,14 @@ function showToast(message, type = 'success') {
 
 function updateOnlineStatus() {
   const statusEl = document.getElementById('netStatus');
-  const textEl = document.getElementById('netText');
-  if (!statusEl || !textEl) return;
+  if (!statusEl) return;
   if (navigator.onLine) {
     statusEl.className = 'net-status online';
-    textEl.textContent = 'Online';
+    statusEl.title = 'Online & Connected';
     if (currentUser && supabaseClient) pullFromCloud();
   } else {
     statusEl.className = 'net-status offline';
-    textEl.textContent = 'Offline';
+    statusEl.title = 'Offline Mode Active';
   }
 }
 window.addEventListener('online', updateOnlineStatus);
@@ -1073,7 +1072,7 @@ async function handleAuthSubmit(e) {
     msg.textContent = 'Supabase client unavailable. Running local standalone mode.';
     msg.style.color = 'var(--accent)';
     msg.style.display = 'block';
-    setTimeout(() => { document.getElementById('authOverlay').classList.remove('active'); document.getElementById('userBar').style.display = 'none'; }, 1200);
+    setTimeout(() => { document.getElementById('authOverlay').classList.remove('active'); document.getElementById('userBar').style.display = 'flex'; }, 1200);
     return;
   }
 
@@ -1259,19 +1258,10 @@ function subscribeToRealtimeSync() {
           if (Array.isArray(payload.new.history)) setJ('iron_workout_history', payload.new.history);
           if (Array.isArray(payload.new.custom_exercises)) setJ('iron_custom_exercises', payload.new.custom_exercises);
           if (Array.isArray(payload.new.hidden_exercises)) setJ('iron_hidden_exercises', payload.new.hidden_exercises);
-          if (payload.new.custom_variations && typeof payload.new.custom_variations === 'object') {
-            setJ('iron_custom_variations', payload.new.custom_variations);
-          }
-          if (payload.new.hidden_variations && typeof payload.new.hidden_variations === 'object') {
-            setJ('iron_hidden_variations', payload.new.hidden_variations);
-          }
-          if (payload.new.var_order && typeof payload.new.var_order === 'object') {
-            setJ('iron_var_order', payload.new.var_order);
-          }
-          if (payload.new.exercise_orders && typeof payload.new.exercise_orders === 'object') {
-            setJ('iron_all_exercise_orders', payload.new.exercise_orders);
-            for (const key in payload.new.exercise_orders) { setJ(key, payload.new.exercise_orders[key]); }
-          }
+          if (payload.new.custom_variations) setJ('iron_custom_variations', payload.new.custom_variations);
+          if (payload.new.hidden_variations) setJ('iron_hidden_variations', payload.new.hidden_variations);
+          if (payload.new.var_order) setJ('iron_var_order', payload.new.var_order);
+          
           if (payload.new.profile_name) setL('iron_profile_name', payload.new.profile_name);
           if (payload.new.profile_age) setL('iron_profile_age', payload.new.profile_age);
           if (payload.new.profile_weight) setL('iron_profile_weight', payload.new.profile_weight);
@@ -2966,6 +2956,7 @@ function init() {
   renderNutritionPlan();
   computeTDEE();
   highlightCurrentWeekDay();
+  updateOnlineStatus();
   document.getElementById('sessionDate').valueAsDate = new Date();
 
   document.querySelectorAll('.bottom-tab').forEach(btn => btn.addEventListener('click', () => showTab(btn.dataset.tab)));
