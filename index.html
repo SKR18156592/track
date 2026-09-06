@@ -1638,10 +1638,13 @@ function renderSetRows(prefix, sets, rest) {
     const tag = s.tag || 'Working';
     const rpe = s.rpe == null ? 7 : s.rpe;
     const rir = s.rir == null ? 1 : s.rir;
+    const wVal = s.weight === 0 ? '0' : (s.weight === '' || s.weight == null ? '' : s.weight);
+    const rVal = s.reps == null ? '' : s.reps;
+
     html += `<tr>
       <td class="set-num-cell">${i}</td>
-      <td><div class="stepper"><button class="stepper-btn" onclick="stepValue('${prefix}_w_${i}', -2.5)">−</button><input type="number" class="input-field set-weight" id="${prefix}_w_${i}" placeholder="kg"><button class="stepper-btn" onclick="stepValue('${prefix}_w_${i}', 2.5)">+</button></div></td>
-      <td><div class="stepper"><button class="stepper-btn" onclick="stepValue('${prefix}_r_${i}', -1)">−</button><input type="number" class="input-field set-reps" id="${prefix}_r_${i}" placeholder="reps"><button class="stepper-btn" onclick="stepValue('${prefix}_r_${i}', 1)">+</button></div></td>
+      <td><div class="stepper"><button class="stepper-btn" onclick="stepValue('${prefix}_w_${i}', -2.5)">−</button><input type="number" class="input-field set-weight" id="${prefix}_w_${i}" value="${wVal}" placeholder="kg"><button class="stepper-btn" onclick="stepValue('${prefix}_w_${i}', 2.5)">+</button></div></td>
+      <td><div class="stepper"><button class="stepper-btn" onclick="stepValue('${prefix}_r_${i}', -1)">−</button><input type="number" class="input-field set-reps" id="${prefix}_r_${i}" value="${rVal}" placeholder="reps"><button class="stepper-btn" onclick="stepValue('${prefix}_r_${i}', 1)">+</button></div></td>
       <td><select class="set-tag" id="${prefix}_t_${i}"><option value="Warmup" ${tag==='Warmup'?'selected':''}>Warmup</option><option value="Working" ${tag==='Working'?'selected':''}>Working</option><option value="Drop Set" ${tag==='Drop Set'?'selected':''}>Drop Set</option><option value="Failure" ${tag==='Failure'?'selected':''}>Failure</option></select></td>
       <td><div class="rpe-wrap"><input type="range" class="set-rpe" id="${prefix}_rp_${i}" min="1" max="10" step="1" value="${rpe}" oninput="updateRpeLabel(this, '${prefix}_rpl_${i}')"><span class="rpe-val" id="${prefix}_rpl_${i}">${rpe}</span></div></td>
       <td><input type="number" class="input-field set-rir" id="${prefix}_ri_${i}" value="${rir}"></td>
@@ -1713,9 +1716,14 @@ function toggleSuperset(category) {
 function renderExerciseCard(ex, idx) {
   const firstVar = ex.variations[0];
   const options = ex.variations.map(v => `<option value="${v.value}">${v.label}</option>`).join('');
-  // Always initialize from the stored preset if available, falling back to defaultSets
-  const storedInit = getPreset(ex.category, firstVar.value);
-  const sets = (storedInit && storedInit.length) ? storedInit : firstVar.defaultSets;
+  
+  // Resolve active variation and prioritize preset immediately during card construction
+  const savedChoice = getChoice(ex.category);
+  const activeVarVal = (savedChoice && ex.variations.some(v => v.value === savedChoice)) ? savedChoice : firstVar.value;
+  const activeVarObj = ex.variations.find(v => v.value === activeVarVal) || firstVar;
+  
+  const storedPreset = getPreset(ex.category, activeVarObj.value);
+  const sets = (storedPreset && storedPreset.length) ? storedPreset : activeVarObj.defaultSets;
   const dec = getSupersetDecorations(ex.category);
   const supBtn = getSupersetBtn(ex.category);
 
@@ -1744,11 +1752,11 @@ function renderExerciseCard(ex, idx) {
     </div>
     <div class="ex-meta-info">
       <div class="info-row">
-        <span class="info-pill setup" id="${ex.prefix}SetupBadge">${firstVar.setup}</span>
-        <span class="info-pill prev" id="${ex.prefix}PrevBadge">⏮️ Preset</span>
+        <span class="info-pill setup" id="${ex.prefix}SetupBadge">${activeVarObj.setup}</span>
+        <span class="info-pill prev" id="${ex.prefix}PrevBadge">⏮️ Preset: ${formatPreset(sets)}</span>
       </div>
       <div class="info-row">
-        <span class="info-pill cue" id="${ex.prefix}CueBadge">${firstVar.cue}</span>
+        <span class="info-pill cue" id="${ex.prefix}CueBadge">${activeVarObj.cue}</span>
         <span class="info-pill overload" id="${ex.prefix}OverloadBadge" style="display:none;"></span>
       </div>
     </div>
@@ -1812,11 +1820,11 @@ function applyVariation(category, prefix, variation, fillRows=true) {
     }
   }
 
-  // ALWAYS PRIORITIZE SAVED PRESET FIRST
+  // FORCE STRICT PRESET RETRIEVAL
   const storedPreset = getPreset(category, variation);
   const defaultSets = varObj.defaultSets;
   let sourceSets = (storedPreset && storedPreset.length) ? storedPreset : defaultSets;
-  let sourceLabel = 'Preset';
+  let sourceLabel = storedPreset && storedPreset.length ? 'Preset' : 'Default';
 
   const table = document.getElementById('table_' + prefix);
   if (table && fillRows) {
@@ -1833,6 +1841,7 @@ function applyVariation(category, prefix, variation, fillRows=true) {
       const s = sourceSets[i] || {};
       const wRaw = s.weight === 0 ? '0' : (s.weight === '' || s.weight == null ? '' : s.weight);
       const rRaw = s.reps == null ? '' : s.reps;
+      
       const wInput = row.querySelector('.set-weight');
       const rInput = row.querySelector('.set-reps');
       const tInput = row.querySelector('.set-tag');
@@ -1843,10 +1852,13 @@ function applyVariation(category, prefix, variation, fillRows=true) {
       if (wInput) wInput.value = wRaw;
       if (rInput) rInput.value = rRaw;
       if (tInput) tInput.value = s.tag || 'Working';
-      if (rRange) { const rpe = s.rpe == null ? 7 : s.rpe; rRange.value = rpe; if (rLabel) rLabel.textContent = rpe; }
+      if (rRange) { 
+        const rpe = s.rpe == null ? 7 : s.rpe; 
+        rRange.value = rpe; 
+        if (rLabel) rLabel.textContent = rpe; 
+      }
       if (riInput && s.rir != null) riInput.value = s.rir;
       
-      // Ensure row is un-checked on load/reset
       const checkBtn = row.querySelector('.check-btn');
       if (checkBtn) checkBtn.classList.remove('completed');
     }
@@ -2200,7 +2212,7 @@ function generateShareCard(record) {
 }
 
 function resetCurrentDayForm() {
-  if (!confirm(`Reset all sets and reload presets for Day ${activeDay}?`)) return;
+  if (!confirm(`Reset all sets and reload saved presets for Day ${activeDay}?`)) return;
   const dayView = document.getElementById('view-day-' + activeDay);
   if (dayView) {
     dayView.querySelectorAll('.exercise-card').forEach(card => {
