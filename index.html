@@ -85,28 +85,28 @@
 
     .user-auth-bar { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; justify-content: flex-end; flex-shrink: 0; }
 
-    /* Desktop vs Mobile Bottom Action Bar Layout */
-    .bottom-bar { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: nowrap; }
-    
+    /* Full-width bottom action bar spanning the entire line */
+    .bottom-bar { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      gap: 8px; 
+      margin-top: 10px; 
+      width: 100%;
+    }
+    .bottom-bar .btn {
+      flex: 1;
+      justify-content: center;
+      padding: 12px 6px;
+      font-size: 12.5px;
+      white-space: nowrap;
+    }
+
     @media (max-width: 768px) {
       .brand-badge { display: none; }
       .app-topbar { padding: 2px 0; gap: 4px; }
       .user-auth-bar { gap: 4px; }
       .brand-logo { font-size: 17px; gap: 6px; }
-
-      /* Mobile 2x2 Grid for Bottom Action Buttons */
-      .bottom-bar {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-      .bottom-bar .btn {
-        width: 100%;
-        justify-content: center;
-        padding: 12px 10px;
-        font-size: 13.5px;
-      }
     }
 
     .toast-container { position: fixed; bottom: 94px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 1000; pointer-events: none; width: 90%; max-width: 380px; align-items: center; }
