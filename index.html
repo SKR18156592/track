@@ -394,7 +394,6 @@
       <div class="net-status online" id="netStatus"><span class="net-dot"></span><span id="netText">Online</span></div>
       <button class="btn-xs" id="manualSyncBtn" onclick="pullFromCloud(true)" style="color: var(--accent); border-color: var(--accent-glow);">☁️ Sync</button>
       <button class="btn-xs" onclick="showTab('profile')" style="color: var(--accent); border-color: var(--accent-glow); display: inline-flex; align-items: center; gap: 4px;">👤 Profile</button>
-      <button class="btn-xs" style="color: #fca5a5; border-color: rgba(239,68,68,0.35);" onclick="handleSignOut()">Log Out</button>
     </div>
   </div>
 
@@ -652,12 +651,13 @@
         </div>
       </div>
 
-      <div class="settings-card">
-        <div style="font-size: 15px; font-weight: 800; margin-bottom: 10px;">🔒 Cloud Account Info</div>
+      <div class="settings-card" style="gap: 14px;">
+        <div style="font-size: 15px; font-weight: 800;">🔒 Cloud Account &amp; Session</div>
         <div class="meta-field">
           <label>Cloud Sync Status</label>
           <input type="text" id="profileEmailField" class="input-field" readonly style="text-align: left; padding: 12px; color: var(--muted);" value="Connected via Supabase Auth" />
         </div>
+        <button class="btn btn-danger" onclick="handleSignOut()" style="justify-content: center; margin-top: 4px;">🚪 Log Out of Account</button>
       </div>
     </section>
   </main>
