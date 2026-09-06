@@ -83,8 +83,7 @@
     @keyframes pulseBolt { 0%, 100% { transform: scale(1); text-shadow: 0 0 15px var(--accent-glow); } 50% { transform: scale(1.08); text-shadow: 0 0 25px var(--accent-glow); } }
     .brand-badge { font-size: 11px; font-weight: 700; background: var(--accent-dim); color: var(--accent); padding: 5px 10px; border-radius: 8px; border: 1px solid var(--accent-glow); letter-spacing: 0.5px; }
 
-    .user-auth-bar { display: none; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
-    .user-auth-email { font-size: 12px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+    .user-auth-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 
     .toast-container { position: fixed; bottom: 94px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 1000; pointer-events: none; width: 90%; max-width: 380px; align-items: center; }
     .toast { background: var(--card-solid); border: 1px solid var(--card-border); color: var(--text); padding: 14px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; box-shadow: 0 16px 40px rgba(0,0,0,0.6); opacity: 0; transform: translateY(20px); transition: all .35s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: auto; backdrop-filter: blur(16px); text-align: center; width: 100%; }
@@ -394,7 +393,7 @@
     <div class="user-auth-bar" id="userBar">
       <div class="net-status online" id="netStatus"><span class="net-dot"></span><span id="netText">Online</span></div>
       <button class="btn-xs" id="manualSyncBtn" onclick="pullFromCloud(true)" style="color: var(--accent); border-color: var(--accent-glow);">☁️ Sync</button>
-      <span class="user-auth-email" id="userEmailTag"></span>
+      <button class="btn-xs" onclick="showTab('profile')" style="color: var(--accent); border-color: var(--accent-glow); display: inline-flex; align-items: center; gap: 4px;">👤 Profile</button>
       <button class="btn-xs" style="color: #fca5a5; border-color: rgba(239,68,68,0.35);" onclick="handleSignOut()">Log Out</button>
     </div>
   </div>
@@ -441,8 +440,6 @@
         <div class="session-meta">
           <div class="meta-field"><label>📅 Date</label><input type="date" id="sessionDate" /></div>
           <div class="meta-field"><label>⚖️ Weight (kg)</label><input type="number" id="bodyWeight" placeholder="72.5" step="0.1" oninput="saveProfileData()" /></div>
-          <div class="meta-field"><label>📏 Height (cm)</label><input type="number" id="profileHeight" placeholder="175" step="1" oninput="saveProfileData()" /></div>
-          <div class="meta-field"><label>🎂 Age (yrs)</label><input type="number" id="profileAge" placeholder="23" step="1" oninput="saveProfileData()" /></div>
           <div class="meta-field"><label>🔥 Energy (1-10)</label><input type="number" id="energyLevel" min="1" max="10" placeholder="8" /></div>
           <div class="meta-field"><label>💤 Sleep (hrs)</label><input type="number" id="sleepHours" placeholder="7.5" step="0.5" /></div>
         </div>
@@ -492,6 +489,7 @@
       </div>
     </section>
 
+    <!-- ANALYTICS VIEW -->
     <section id="view-analytics" class="app-view">
       <div class="analytics-card">
         <div class="analytics-header">📊 Muscle Group Tonnage</div>
@@ -513,6 +511,7 @@
       </div>
     </section>
 
+    <!-- TOOLS VIEW -->
     <section id="view-tools" class="app-view">
       <div class="calc-box">
         <strong style="color:var(--accent)">🔥 Maintenance Calories &amp; TDEE Calculator (Mifflin-St Jeor)</strong>
@@ -542,7 +541,7 @@
           </select>
         </div>
         <div class="calc-result-box" id="calcTdeeResult" style="color:var(--lime);">BMR: 0 kcal | Maintenance TDEE: 0 kcal</div>
-        <button class="btn btn-primary" onclick="syncCalculatorToProfile()" style="justify-content:center; margin-top:4px;">💾 Save Height, Age &amp; Weight to Profile</button>
+        <button class="btn btn-primary" onclick="syncCalculatorToProfile()" style="justify-content:center; margin-top:4px;">💾 Save Weight to Profile</button>
       </div>
 
       <div class="calc-box">
@@ -565,6 +564,7 @@
       </div>
     </section>
 
+    <!-- SETTINGS VIEW -->
     <section id="view-settings" class="app-view">
       <div class="settings-card">
         <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:10px;">
@@ -599,6 +599,65 @@
           <span>📥 Import Backup (JSON)</span>
           <input type="file" id="importBackupInput" class="settings-file" accept=".json,application/json" onchange="importBackupFile(this)">
         </label>
+      </div>
+    </section>
+
+    <!-- PROFILE VIEW -->
+    <section id="view-profile" class="app-view">
+      <div class="settings-card" style="gap: 18px;">
+        <div class="analytics-header" style="justify-content:space-between; align-items:center;">
+          <span>👤 User Profile &amp; Biometrics</span>
+          <span class="brand-badge" id="profileSyncBadge">Local Active</span>
+        </div>
+        <p style="font-size: 13.5px; color: var(--muted);">Manage your personal details and body measurements used across the workout tracker and nutrition calculator.</p>
+        
+        <div class="calc-row">
+          <div class="meta-field">
+            <label>👤 Full Name</label>
+            <input type="text" id="profileFullName" class="input-field" placeholder="Suman Kumar Raj" style="text-align: left; padding: 12px;" oninput="saveProfileTab()" />
+          </div>
+          <div class="meta-field">
+            <label>🎂 Age (Years)</label>
+            <input type="number" id="profileTabAge" class="input-field" placeholder="23" step="1" oninput="saveProfileTab()" />
+          </div>
+        </div>
+
+        <div class="calc-row">
+          <div class="meta-field">
+            <label>⚖️ Body Weight (kg)</label>
+            <input type="number" id="profileTabWeight" class="input-field" placeholder="72.5" step="0.1" oninput="saveProfileTab()" />
+          </div>
+          <div class="meta-field">
+            <label>📏 Height (cm)</label>
+            <input type="number" id="profileTabHeight" class="input-field" placeholder="175" step="1" oninput="saveProfileTab()" />
+          </div>
+        </div>
+
+        <div class="meta-field">
+          <label>Biological Sex (for BMR)</label>
+          <select id="profileTabSex" class="machine-dropdown" style="width:100%;" onchange="saveProfileTab()">
+            <option value="male">Male (+5)</option>
+            <option value="female">Female (-161)</option>
+          </select>
+        </div>
+
+        <div class="calc-result-box" id="profileSummaryBox" style="font-size: 14px; text-align: left; padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+          <span id="profileBmiResult" style="color: var(--accent);">BMI: --</span>
+          <span id="profileBmrResult" style="color: var(--lime);">Estimated BMR: -- kcal/day</span>
+        </div>
+
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          <button class="btn btn-primary" onclick="showToast('✅ Profile saved successfully!', 'success')">💾 Save Profile</button>
+          <button class="btn btn-secondary" onclick="exportFullBackup()">📥 Export Backup</button>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <div style="font-size: 15px; font-weight: 800; margin-bottom: 10px;">🔒 Cloud Account Info</div>
+        <div class="meta-field">
+          <label>Cloud Sync Status</label>
+          <input type="text" id="profileEmailField" class="input-field" readonly style="text-align: left; padding: 12px; color: var(--muted);" value="Connected via Supabase Auth" />
+        </div>
       </div>
     </section>
   </main>
@@ -892,7 +951,6 @@ function renderNutritionPlan() {
   document.getElementById('dietCarbs').textContent = plan.carbs + ' g';
   document.getElementById('dietFat').textContent = plan.fat + ' g';
 
-  // Load and render saved profile data into Nutrition View summary
   const weight = parseFloat(getL('iron_profile_weight', '72.5'));
   const height = parseFloat(getL('iron_profile_height', '175'));
   const age = parseFloat(getL('iron_profile_age', '23'));
@@ -907,7 +965,7 @@ function renderNutritionPlan() {
   if (age > 0 && weight > 0 && height > 0) {
     let bmr = (10 * weight) + (6.25 * height) - (5 * age);
     bmr += (sex === 'male') ? 5 : -161;
-    const tdee = bmr * 1.55; // Moderate multiplier default
+    const tdee = bmr * 1.55;
     document.getElementById('nutriTdeeDisplay').textContent = `Calculated Maintenance TDEE: ~${tdee.toFixed(0)} kcal/day (BMR: ${bmr.toFixed(0)})`;
   }
 
@@ -1046,11 +1104,13 @@ async function handleSignOut() {
 function updateUserSessionUI(user) {
   const overlay = document.getElementById('authOverlay');
   const userBar = document.getElementById('userBar');
-  const emailTag = document.getElementById('userEmailTag');
   if (user) {
     overlay.classList.remove('active');
     userBar.style.display = 'flex';
-    emailTag.textContent = user.email;
+    const profileEmail = document.getElementById('profileEmailField');
+    if (profileEmail) profileEmail.value = user.email;
+    const syncBadge = document.getElementById('profileSyncBadge');
+    if (syncBadge) syncBadge.textContent = 'Cloud Synced';
   } else {
     overlay.classList.add('active');
     userBar.style.display = 'none';
@@ -1186,7 +1246,7 @@ function subscribeToRealtimeSync() {
 }
 
 // ==========================================
-// 2. THEME ENGINE
+// 2. THEME ENGINE & WORKOUT DATABASE
 // ==========================================
 function changeTheme(themeName) {
   document.documentElement.setAttribute('data-theme', themeName);
@@ -1199,7 +1259,6 @@ function loadTheme() {
   changeTheme(t);
 }
 
-// ----- Workout Database -----
 const BASE_EXERCISE_TYPES = {
   'd1_incline':'compound','d1_midchest':'isolation','d1_lowerchest':'isolation',
   'd1_shoulder':'compound','d1_sidedelt':'isolation','d1_bicepmid':'isolation','d1_bicepstretch':'isolation','d1_brachialis':'isolation',
@@ -2186,6 +2245,8 @@ function showTab(tab) {
   } else if (tab === 'tools') {
     loadProfileToCalculator();
     computeTDEE();
+  } else if (tab === 'profile') {
+    loadProfileTabUI();
   }
 }
 
@@ -2362,9 +2423,6 @@ function finishCurrentDayWorkout() {
   showCelebration();
 }
 
-// ==========================================
-// 4. SHAREABLE WORKOUT SUMMARY CARD GENERATOR
-// ==========================================
 function generateShareCard(record) {
   const canvas = document.createElement('canvas');
   canvas.width = 800;
@@ -2491,26 +2549,16 @@ function resetCurrentDayForm() {
 }
 
 // ==========================================
-// PROFILE & TDEE / MAINTENANCE CALCULATOR
+// PROFILE & BIOMETRICS MANAGEMENT
 // ==========================================
 function saveProfileData() {
   setL('iron_profile_weight', document.getElementById('bodyWeight').value);
-  setL('iron_profile_height', document.getElementById('profileHeight').value);
-  setL('iron_profile_age', document.getElementById('profileAge').value);
 }
 
 function loadProfileData() {
   const w = getL('iron_profile_weight', '72.5');
-  const h = getL('iron_profile_height', '175');
-  const a = getL('iron_profile_age', '23');
-
   if (document.getElementById('bodyWeight')) document.getElementById('bodyWeight').value = w;
-  if (document.getElementById('profileHeight')) document.getElementById('profileHeight').value = h;
-  if (document.getElementById('profileAge')) document.getElementById('profileAge').value = a;
-
   if (document.getElementById('calcWeight')) document.getElementById('calcWeight').value = w;
-  if (document.getElementById('calcHeight')) document.getElementById('calcHeight').value = h;
-  if (document.getElementById('calcAge')) document.getElementById('calcAge').value = a;
 }
 
 function loadProfileToCalculator() {
@@ -2530,11 +2578,76 @@ function syncCalculatorToProfile() {
   setL('iron_profile_sex', sex);
 
   if (document.getElementById('bodyWeight')) document.getElementById('bodyWeight').value = w;
-  if (document.getElementById('profileHeight')) document.getElementById('profileHeight').value = h;
-  if (document.getElementById('profileAge')) document.getElementById('profileAge').value = a;
 
-  showToast('💾 Height, Age & Weight saved to your profile!', 'success');
+  showToast('💾 Weight saved to your profile!', 'success');
   renderNutritionPlan();
+}
+
+function loadProfileTabUI() {
+  const name = getL('iron_profile_name', 'Suman Kumar Raj');
+  const age = getL('iron_profile_age', '23');
+  const weight = getL('iron_profile_weight', '72.5');
+  const height = getL('iron_profile_height', '175');
+  const sex = getL('iron_profile_sex', 'male');
+
+  if (document.getElementById('profileFullName')) document.getElementById('profileFullName').value = name;
+  if (document.getElementById('profileTabAge')) document.getElementById('profileTabAge').value = age;
+  if (document.getElementById('profileTabWeight')) document.getElementById('profileTabWeight').value = weight;
+  if (document.getElementById('profileTabHeight')) document.getElementById('profileTabHeight').value = height;
+  if (document.getElementById('profileTabSex')) document.getElementById('profileTabSex').value = sex;
+
+  if (currentUser && document.getElementById('profileEmailField')) {
+    document.getElementById('profileEmailField').value = currentUser.email;
+    const syncBadge = document.getElementById('profileSyncBadge');
+    if (syncBadge) syncBadge.textContent = 'Cloud Synced';
+  }
+
+  computeProfileMetrics();
+}
+
+function saveProfileTab() {
+  const name = document.getElementById('profileFullName').value;
+  const age = document.getElementById('profileTabAge').value;
+  const weight = document.getElementById('profileTabWeight').value;
+  const height = document.getElementById('profileTabHeight').value;
+  const sex = document.getElementById('profileTabSex').value;
+
+  setL('iron_profile_name', name);
+  setL('iron_profile_age', age);
+  setL('iron_profile_weight', weight);
+  setL('iron_profile_height', height);
+  setL('iron_profile_sex', sex);
+
+  if (document.getElementById('bodyWeight')) document.getElementById('bodyWeight').value = weight;
+
+  computeProfileMetrics();
+}
+
+function computeProfileMetrics() {
+  const weight = parseFloat(document.getElementById('profileTabWeight')?.value) || 0;
+  const height = parseFloat(document.getElementById('profileTabHeight')?.value) || 0;
+  const age = parseFloat(document.getElementById('profileTabAge')?.value) || 0;
+  const sex = document.getElementById('profileTabSex')?.value || 'male';
+
+  const bmiEl = document.getElementById('profileBmiResult');
+  const bmrEl = document.getElementById('profileBmrResult');
+
+  if (weight > 0 && height > 0) {
+    const heightM = height / 100;
+    const bmi = weight / (heightM * heightM);
+    let category = bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese';
+    if (bmiEl) bmiEl.textContent = `BMI: ${bmi.toFixed(1)} (${category})`;
+  } else {
+    if (bmiEl) bmiEl.textContent = 'BMI: --';
+  }
+
+  if (weight > 0 && height > 0 && age > 0) {
+    let bmr = (10 * weight) + (6.25 * height) - (5 * age);
+    bmr += (sex === 'male') ? 5 : -161;
+    if (bmrEl) bmrEl.textContent = `Estimated BMR: ${bmr.toFixed(0)} kcal/day | Maintenance TDEE: ~${(bmr * 1.55).toFixed(0)} kcal/day`;
+  } else {
+    if (bmrEl) bmrEl.textContent = 'Estimated BMR: -- kcal/day';
+  }
 }
 
 function computeTDEE() {
@@ -2741,6 +2854,7 @@ function fireConfetti(opts) {
 function init() {
   loadSettings();
   loadProfileData();
+  loadProfileTabUI();
   rebuildWorkoutDatabase();
   renderAll();
   renderNutritionPlan();
