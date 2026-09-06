@@ -298,6 +298,11 @@
     .bottom-tab-icon { font-size: 20px; transition: all .25s; }
     .bottom-tab.active .bottom-tab-icon { text-shadow: 0 0 16px var(--accent-glow); transform: scale(1.15); }
 
+    /* Profile Avatar Styles */
+    .avatar-upload-container { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; }
+    .avatar-preview { width: 72px; height: 72px; border-radius: 50%; background: var(--accent-dim); border: 2px solid var(--accent-glow); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; color: var(--accent); overflow: hidden; position: relative; box-shadow: 0 0 20px var(--accent-dim); }
+    .avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+
     /* Analytics */
     .analytics-card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius-md); padding: 20px; display: flex; flex-direction: column; gap: 16px; }
     .analytics-header { font-size: 16px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 10px; }
@@ -393,7 +398,7 @@
     <div class="user-auth-bar" id="userBar">
       <div class="net-status online" id="netStatus"><span class="net-dot"></span><span id="netText">Online</span></div>
       <button class="btn-xs" id="manualSyncBtn" onclick="pullFromCloud(true)" style="color: var(--accent); border-color: var(--accent-glow);">☁️ Sync</button>
-      <button class="btn-xs" onclick="showTab('profile')" style="color: var(--accent); border-color: var(--accent-glow); display: inline-flex; align-items: center; gap: 4px;">👤 Profile</button>
+      <button class="btn-xs" id="profileToggleBtn" onclick="toggleProfileTab()" style="color: var(--accent); border-color: var(--accent-glow); display: inline-flex; align-items: center; gap: 4px;">👤 Profile</button>
     </div>
   </div>
 
@@ -608,8 +613,21 @@
           <span>👤 User Profile &amp; Biometrics</span>
           <span class="brand-badge" id="profileSyncBadge">Local Active</span>
         </div>
-        <p style="font-size: 13.5px; color: var(--muted);">Manage your personal details and body measurements used across the workout tracker and nutrition calculator.</p>
         
+        <!-- Avatar Upload & Initials Display -->
+        <div class="avatar-upload-container">
+          <div class="avatar-preview" id="avatarPreviewContainer">
+            <span id="avatarInitials">SK</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label class="btn-xs" style="width: fit-content; cursor: pointer; color: var(--accent); border-color: var(--accent-glow);">
+              📷 Upload Avatar
+              <input type="file" id="avatarFileInput" accept="image/*" style="display: none;" onchange="handleAvatarUpload(this)" />
+            </label>
+            <span style="font-size: 11.5px; color: var(--muted);">Initials are automatically generated from your name if no photo is uploaded.</span>
+          </div>
+        </div>
+
         <div class="calc-row">
           <div class="meta-field">
             <label>👤 Full Name</label>
@@ -1162,7 +1180,18 @@ async function pullFromCloud(showIndicator = false) {
         for (const key in data.exercise_orders) { setJ(key, data.exercise_orders[key]); }
         updated = true;
       }
-      if (updated) refreshAllUI();
+      
+      if (data.profile_name) { setL('iron_profile_name', data.profile_name); updated = true; }
+      if (data.profile_age) { setL('iron_profile_age', data.profile_age); updated = true; }
+      if (data.profile_weight) { setL('iron_profile_weight', data.profile_weight); updated = true; }
+      if (data.profile_height) { setL('iron_profile_height', data.profile_height); updated = true; }
+      if (data.profile_sex) { setL('iron_profile_sex', data.profile_sex); updated = true; }
+      if (data.profile_avatar !== undefined) { setL('iron_profile_avatar', data.profile_avatar); updated = true; }
+
+      if (updated) {
+        refreshAllUI();
+        loadProfileTabUI();
+      }
     } else {
       await pushToCloud();
     }
@@ -1190,6 +1219,12 @@ async function pushToCloud() {
       hidden_variations: getJ('iron_hidden_variations', {}),
       var_order: getJ('iron_var_order', {}),
       exercise_orders: getJ('iron_all_exercise_orders', {}),
+      profile_name: getL('iron_profile_name', 'Suman Kumar Raj'),
+      profile_age: getL('iron_profile_age', '23'),
+      profile_weight: getL('iron_profile_weight', '72.5'),
+      profile_height: getL('iron_profile_height', '175'),
+      profile_sex: getL('iron_profile_sex', 'male'),
+      profile_avatar: getL('iron_profile_avatar', null),
       updated_at: new Date().toISOString()
     };
 
@@ -1237,7 +1272,15 @@ function subscribeToRealtimeSync() {
             setJ('iron_all_exercise_orders', payload.new.exercise_orders);
             for (const key in payload.new.exercise_orders) { setJ(key, payload.new.exercise_orders[key]); }
           }
+          if (payload.new.profile_name) setL('iron_profile_name', payload.new.profile_name);
+          if (payload.new.profile_age) setL('iron_profile_age', payload.new.profile_age);
+          if (payload.new.profile_weight) setL('iron_profile_weight', payload.new.profile_weight);
+          if (payload.new.profile_height) setL('iron_profile_height', payload.new.profile_height);
+          if (payload.new.profile_sex) setL('iron_profile_sex', payload.new.profile_sex);
+          if (payload.new.profile_avatar !== undefined) setL('iron_profile_avatar', payload.new.profile_avatar);
+
           refreshAllUI();
+          loadProfileTabUI();
           showToast('📥 Live update synced from another device!', 'info');
         }
       }
@@ -1575,6 +1618,7 @@ let confettiFired = false;
 let lastFinishedRecord = null;
 let activePresetModalData = null;
 let activeAddVarCategory = null;
+let lastActiveTabBeforeProfile = 'workout';
 
 const getL = (k, def) => { try { const v = localStorage.getItem(k); return v === null ? def : v; } catch(e){ return def; } };
 const setL = (k, v) => { try { localStorage.setItem(k, v); } catch(e){} };
@@ -2233,8 +2277,13 @@ function removeSetRow(tableId) {
 }
 
 function showTab(tab) {
+  const profileActive = document.getElementById('view-profile').classList.contains('active');
+  if (tab !== 'profile' && profileActive) {
+    lastActiveTabBeforeProfile = tab;
+  }
   document.querySelectorAll('.bottom-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.app-view').forEach(v => v.classList.toggle('active', v.id === 'view-' + tab));
+  
   if (tab === 'analytics') {
     setAnalyticRange(analyticRange);
     render1RMTrends();
@@ -2246,6 +2295,24 @@ function showTab(tab) {
     loadProfileToCalculator();
     computeTDEE();
   } else if (tab === 'profile') {
+    loadProfileTabUI();
+  }
+}
+
+function toggleProfileTab() {
+  const profileView = document.getElementById('view-profile');
+  const isProfileActive = profileView.classList.contains('active');
+  
+  if (isProfileActive) {
+    showTab(lastActiveTabBeforeProfile || 'workout');
+  } else {
+    const currentActiveView = document.querySelector('.app-view.active');
+    if (currentActiveView && currentActiveView.id !== 'view-profile') {
+      lastActiveTabBeforeProfile = currentActiveView.id.replace('view-', '');
+    }
+    document.querySelectorAll('.bottom-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
+    profileView.classList.add('active');
     loadProfileTabUI();
   }
 }
@@ -2553,6 +2620,7 @@ function resetCurrentDayForm() {
 // ==========================================
 function saveProfileData() {
   setL('iron_profile_weight', document.getElementById('bodyWeight').value);
+  pushToCloud();
 }
 
 function loadProfileData() {
@@ -2581,6 +2649,37 @@ function syncCalculatorToProfile() {
 
   showToast('💾 Weight saved to your profile!', 'success');
   renderNutritionPlan();
+  pushToCloud();
+}
+
+function handleAvatarUpload(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const base64Img = e.target.result;
+      setL('iron_profile_avatar', base64Img);
+      updateAvatarDisplay(base64Img);
+      showToast('📷 Avatar uploaded successfully!', 'success');
+      pushToCloud();
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function updateAvatarDisplay(imgSrcOrNull) {
+  const container = document.getElementById('avatarPreviewContainer');
+  const initialsEl = document.getElementById('avatarInitials');
+  if (!container) return;
+
+  if (imgSrcOrNull) {
+    container.innerHTML = `<img src="${imgSrcOrNull}" alt="Avatar" />`;
+  } else {
+    const name = document.getElementById('profileFullName')?.value || 'User';
+    const parts = name.trim().split(' ');
+    let initials = parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]) : name.slice(0, 2);
+    initials = initials.toUpperCase();
+    container.innerHTML = `<span id="avatarInitials">${initials}</span>`;
+  }
 }
 
 function loadProfileTabUI() {
@@ -2589,12 +2688,15 @@ function loadProfileTabUI() {
   const weight = getL('iron_profile_weight', '72.5');
   const height = getL('iron_profile_height', '175');
   const sex = getL('iron_profile_sex', 'male');
+  const avatar = getL('iron_profile_avatar', null);
 
   if (document.getElementById('profileFullName')) document.getElementById('profileFullName').value = name;
   if (document.getElementById('profileTabAge')) document.getElementById('profileTabAge').value = age;
   if (document.getElementById('profileTabWeight')) document.getElementById('profileTabWeight').value = weight;
   if (document.getElementById('profileTabHeight')) document.getElementById('profileTabHeight').value = height;
   if (document.getElementById('profileTabSex')) document.getElementById('profileTabSex').value = sex;
+
+  updateAvatarDisplay(avatar);
 
   if (currentUser && document.getElementById('profileEmailField')) {
     document.getElementById('profileEmailField').value = currentUser.email;
@@ -2620,7 +2722,11 @@ function saveProfileTab() {
 
   if (document.getElementById('bodyWeight')) document.getElementById('bodyWeight').value = weight;
 
+  const avatar = getL('iron_profile_avatar', null);
+  if (!avatar) updateAvatarDisplay(null);
+
   computeProfileMetrics();
+  pushToCloud();
 }
 
 function computeProfileMetrics() {
